@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fffdf7;
+  --foreground: #1f1f1f;
+  --gold: #f4c62b;
+  --gold-hover: #e8b923;
+  --lotus-pink: #efa3c8;
+  --soft-lotus-pink: #f7d6e7;
+  --ivory: #fffdf7;
+  --cream: #f8f1de;
+  --sidebar-cream: #fff8e8;
+  --temple-red: #c62828;
+  --jade-green: #2e7d61;
+  --ink: #1f1f1f;
+  --muted: #6b6254;
+  --soft-border: #e8ddc4;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans-custom);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(244, 198, 43, 0.18), transparent 28%),
+    linear-gradient(180deg, #fffdf7 0%, #f8f1de 42%, #fffdf7 100%);
+  color: var(--foreground);
+  font-family: var(--font-sans-custom), Arial, Helvetica, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.shell {
+  width: min(1200px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.surface {
+  border: 1px solid var(--soft-border);
+  border-radius: 1rem;
+  background: rgba(255, 253, 247, 0.9);
+  box-shadow: 0 16px 42px rgba(85, 65, 22, 0.08);
+}
+
+.focus-ring:focus {
+  outline: 3px solid rgba(244, 198, 43, 0.45);
+  outline-offset: 2px;
+}
+
+.public-hero-bg {
+  background:
+    linear-gradient(180deg, rgba(255, 253, 247, 0.88), rgba(255, 255, 255, 0.96)),
+    radial-gradient(circle at 50% 0%, rgba(244, 198, 43, 0.54), transparent 38%),
+    linear-gradient(90deg, #f4c62b 0%, #fff8e8 16%, #fffdf7 50%, #fff8e8 84%, #f4c62b 100%);
+}
+
+.btn-primary {
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--ink);
+  box-shadow: 0 10px 22px rgba(232, 185, 35, 0.22);
+  transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.btn-primary:hover {
+  background: var(--gold-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(232, 185, 35, 0.28);
+}
+
+.btn-secondary {
+  border: 1px solid rgba(244, 198, 43, 0.45);
+  border-radius: 999px;
+  background: #fffdf7;
+  color: var(--ink);
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--gold);
+  background: var(--sidebar-cream);
+}

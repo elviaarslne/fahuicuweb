@@ -1,0 +1,656 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  INACTIVE
+}
+
+enum SystemRole {
+  MEMBER
+  ADMIN
+  SUPER_ADMIN
+  KETUA
+  SUB_KETUA
+  TRAINER
+  SPEAKER
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  REGISTRATION_OPEN
+  ONGOING
+  COMPLETED
+  FEEDBACK_COLLECTION
+  ARCHIVED
+}
+
+enum AttendanceStatus {
+  NOT_CHECKED_IN
+  PRESENT
+  LATE
+  ABSENT
+  EXCUSED
+}
+
+enum RegistrationStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum AttendanceSource {
+  QR
+  MANUAL
+}
+
+enum EventRole {
+  ATTENDEE
+  COORDINATOR
+  MC
+  TRAINER
+  SPEAKER
+  PENGAWAS
+}
+
+enum SpeakerCategory {
+  BAN_SHI_JEN_YUAN
+  JIANG_YUAN
+  TAN_ZHU
+  JIANG_SHI
+}
+
+enum MemberCategory {
+  BAN_SHI_JEN_YUAN
+  JIANG_YUAN
+  TAN_ZHU
+  JIANG_SHI
+}
+
+enum MemberStatus {
+  QIU_DAO_BARU
+  ANGGOTA_LAMA
+}
+
+enum LanguagePreference {
+  id
+  zh_TW
+}
+
+enum JournalVisibility {
+  PRIVATE_ONLY
+}
+
+enum WorkspacePreference {
+  MEMBER
+  SPEAKER
+  TRAINER
+  ADMIN
+}
+
+enum MaterialType {
+  PDF
+  PPT
+  MP3
+  MP4
+  VIDEO_LINK
+  NOTES
+  OTHER
+}
+
+enum ActivityType {
+  EVENT_PHOTO
+  LEARNING_PROGRESS
+  SERVICE
+  GRATITUDE
+  DOCUMENTATION
+  OTHER
+}
+
+enum ActivityVisibility {
+  INTERNAL
+}
+
+enum ActivityMediaType {
+  IMAGE
+  VIDEO
+}
+
+enum RewardTransactionStatus {
+  REQUESTED
+  APPROVED
+  FULFILLED
+  CANCELLED
+}
+
+enum CreditLedgerType {
+  EARNED
+  SPENT
+  ADJUSTED
+}
+
+enum CreditLedgerSource {
+  WEJANGAN_REFLECTION
+  DAILY_TASK
+  STORE_REDEEM
+  MANUAL_ADMIN
+  EVENT_TASK
+}
+
+model User {
+  id                       String                   @id @default(cuid())
+  homeBranchId             String                   @default("pusat") @map("home_branch_id")
+  fullName                 String                   @map("full_name")
+  chineseName              String?                  @map("chinese_name")
+  email                    String                   @unique
+  phone                    String?
+  passwordHash             String                   @map("password_hash")
+  profilePhotoUrl          String?                  @map("profile_photo_url")
+  qiuDaoCardUrl            String?                  @map("qiu_dao_card_url")
+  birthDate                DateTime?                @map("birth_date")
+  username                 String?                  @unique
+  bio                      String?                  @db.Text
+  activityProfileUpdatedAt DateTime?                @map("activity_profile_updated_at")
+  memberStatus             MemberStatus             @default(QIU_DAO_BARU) @map("member_status")
+  languagePreference       LanguagePreference       @default(id) @map("language_preference")
+  journalVisibility        JournalVisibility        @default(PRIVATE_ONLY) @map("journal_visibility")
+  selectedWorkspace        WorkspacePreference      @default(MEMBER) @map("selected_workspace")
+  memberCategory           MemberCategory?          @map("member_category")
+  creditBalance            Int                      @default(0) @map("credit_balance")
+  currentClassId           String?                  @map("current_class_id")
+  status                   UserStatus               @default(PENDING)
+  isCoordinatorEligible    Boolean                  @default(false) @map("is_coordinator_eligible")
+  createdAt                DateTime                 @default(now()) @map("created_at")
+  updatedAt                DateTime                 @updatedAt @map("updated_at")
+  homeBranch               Branch                   @relation("UserHomeBranch", fields: [homeBranchId], references: [id])
+  currentClass             ClassLevel?              @relation(fields: [currentClassId], references: [id])
+  systemRoles              UserSystemRole[]
+  eventParticipants        EventParticipant[]
+  eventAttendances         EventAttendance[]
+  approvedParticipants     EventParticipant[]       @relation("ParticipantApproval")
+  feedbacks                Feedback[]
+  userDivisions            UserDivision[]
+  eventSessionsAsSpeaker   EventSession[]           @relation("SessionSpeaker")
+  eventSessionsAsTrainer   EventSession[]           @relation("SessionTrainer")
+  topicFeedbacks           TopicFeedback[]
+  eventReflections         EventReflection[]
+  learningProgress         LearningModuleProgress[]
+  wejanganCreated          DailyWejangan[]          @relation("WejanganCreator")
+  wejanganReflections      WejanganReflection[]
+  activityPosts            ActivityPost[]
+  activityLikes            ActivityLike[]
+  activityComments         ActivityComment[]
+  rewardTransactions       RewardTransaction[]
+  creditLedgerEntries      CreditLedger[]
+
+  @@map("users")
+}
+
+model Division {
+  id             String         @id
+  slug           String         @unique
+  code           String
+  name           String
+  indonesianName String         @map("indonesian_name")
+  chineseName    String         @map("chinese_name")
+  sortOrder      Int            @default(0) @map("sort_order")
+  isPilot        Boolean        @default(false) @map("is_pilot")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  subdivisions   Subdivision[]
+  userDivisions  UserDivision[]
+
+  @@map("divisions")
+}
+
+model Subdivision {
+  id             String         @id
+  divisionId     String         @map("division_id")
+  slug           String         @unique
+  name           String
+  indonesianName String         @map("indonesian_name")
+  chineseName    String         @map("chinese_name")
+  sortOrder      Int            @default(0) @map("sort_order")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  division       Division       @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  userDivisions  UserDivision[]
+
+  @@index([divisionId])
+  @@map("subdivisions")
+}
+
+model UserDivision {
+  id            String       @id @default(cuid())
+  userId        String       @map("user_id")
+  divisionId    String       @map("division_id")
+  subdivisionId String?      @map("subdivision_id")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  division      Division     @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  subdivision   Subdivision? @relation(fields: [subdivisionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([divisionId])
+  @@index([subdivisionId])
+  @@map("user_divisions")
+}
+
+model Branch {
+  id          String   @id
+  name        String
+  foThangName String   @map("fo_thang_name")
+  slug        String   @unique
+  isCenter    Boolean  @default(false) @map("is_center")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  users       User[]   @relation("UserHomeBranch")
+  events      Event[]  @relation("EventHostingBranch")
+
+  @@map("branches")
+}
+
+model UserSystemRole {
+  id        String     @id @default(cuid())
+  userId    String     @map("user_id")
+  role      SystemRole
+  createdAt DateTime   @default(now()) @map("created_at")
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@map("user_system_roles")
+}
+
+model ClassLevel {
+  id              String           @id @default(cuid())
+  levelNumber     Int              @unique @map("level_number")
+  name            String
+  slug            String           @unique
+  description     String?          @db.Text
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  users           User[]
+  events          Event[]
+  materials       Material[]
+  learningModules LearningModule[]
+
+  @@map("class_levels")
+}
+
+model Event {
+  id                  String             @id @default(cuid())
+  hostingBranchId     String             @default("pusat") @map("hosting_branch_id")
+  title               String
+  category            String
+  purpose             String             @db.Text
+  expectedOutcome     String             @map("expected_outcome") @db.Text
+  description         String?            @db.Text
+  startAt             DateTime           @map("start_at")
+  endAt               DateTime?          @map("end_at")
+  location            String?
+  targetClassId       String?            @map("target_class_id")
+  status              EventStatus        @default(DRAFT)
+  minimumParticipants Int                @default(0) @map("minimum_participants")
+  minimumAge          Int?               @map("minimum_age")
+  maximumAge          Int?               @map("maximum_age")
+  isConfirmed         Boolean            @default(false) @map("is_confirmed")
+  qrToken             String             @unique @map("qr_token")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  hostingBranch       Branch             @relation("EventHostingBranch", fields: [hostingBranchId], references: [id])
+  targetClass         ClassLevel?        @relation(fields: [targetClassId], references: [id])
+  participants        EventParticipant[]
+  attendances         EventAttendance[]
+  feedbacks           Feedback[]
+  materials           Material[]
+  sessions            EventSession[]
+  eventReflections    EventReflection[]
+
+  @@map("events")
+}
+
+model EventSession {
+  id             String          @id @default(cuid())
+  eventId        String          @map("event_id")
+  title          String
+  description    String?         @db.Text
+  startAt        DateTime?       @map("start_at")
+  endAt          DateTime?       @map("end_at")
+  speakerId      String?         @map("speaker_id")
+  trainerId      String?         @map("trainer_id")
+  orderNumber    Int             @default(0) @map("order_number")
+  materialUrl    String?         @map("material_url")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  event          Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  speaker        User?           @relation("SessionSpeaker", fields: [speakerId], references: [id], onDelete: SetNull)
+  trainer        User?           @relation("SessionTrainer", fields: [trainerId], references: [id], onDelete: SetNull)
+  topicFeedbacks TopicFeedback[]
+
+  @@index([eventId])
+  @@index([speakerId])
+  @@index([trainerId])
+  @@map("event_sessions")
+}
+
+model EventParticipant {
+  id                 String             @id @default(cuid())
+  userId             String             @map("user_id")
+  eventId            String             @map("event_id")
+  role               EventRole
+  registrationStatus RegistrationStatus @default(APPROVED) @map("registration_status")
+  approvedByUserId   String?            @map("approved_by_user_id")
+  approvedAt         DateTime?          @map("approved_at")
+  speakerCategory    SpeakerCategory?   @map("speaker_category")
+  attendanceStatus   AttendanceStatus   @default(NOT_CHECKED_IN) @map("attendance_status")
+  checkedInAt        DateTime?          @map("checked_in_at")
+  feedbackSubmitted  Boolean            @default(false) @map("feedback_submitted")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvedByUser     User?              @relation("ParticipantApproval", fields: [approvedByUserId], references: [id])
+  event              Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId, role])
+  @@index([eventId])
+  @@map("event_participants")
+}
+
+model EventAttendance {
+  id           String           @id @default(cuid())
+  userId       String           @map("user_id")
+  eventId      String           @map("event_id")
+  status       AttendanceStatus @default(NOT_CHECKED_IN)
+  source       AttendanceSource @default(QR)
+  checkedInAt  DateTime?        @map("checked_in_at")
+  checkedOutAt DateTime?        @map("checked_out_at")
+  notes        String?          @db.Text
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event        Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId])
+  @@map("event_attendances")
+}
+
+model Feedback {
+  id                        String   @id @default(cuid())
+  eventId                   String   @map("event_id")
+  userId                    String   @map("user_id")
+  purposeAchievedRating     Int      @map("purpose_achieved_rating")
+  topicMatchRating          Int      @map("topic_match_rating")
+  speakerClarityRating      Int      @map("speaker_clarity_rating")
+  dharmaUsefulnessRating    Int      @map("dharma_usefulness_rating")
+  materialPurposeRating     Int?     @map("material_purpose_rating")
+  deliveryClarityRating     Int?     @map("delivery_clarity_rating")
+  timeEffectivenessRating   Int?     @map("time_effectiveness_rating")
+  flowClarityRating         Int?     @map("flow_clarity_rating")
+  perspectiveChangeRating   Int?     @map("perspective_change_rating")
+  joinAgainRating           Int?     @map("join_again_rating")
+  understandingRating       Int?     @map("understanding_rating")
+  registrationEaseRating    Int?     @map("registration_ease_rating")
+  coordinationClarityRating Int?     @map("coordination_clarity_rating")
+  locationComfortRating     Int?     @map("location_comfort_rating")
+  learnedText               String   @map("learned_text") @db.Text
+  insightText               String?  @map("insight_text") @db.Text
+  improvementText           String   @map("improvement_text") @db.Text
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+  event                     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@map("feedbacks")
+}
+
+model TopicFeedback {
+  id                       String       @id @default(cuid())
+  eventSessionId           String       @map("event_session_id")
+  userId                   String       @map("user_id")
+  speakerClarityRating     Int          @map("speaker_clarity_rating")
+  materialUsefulnessRating Int          @map("material_usefulness_rating")
+  topicRelevanceRating     Int          @map("topic_relevance_rating")
+  learnedText              String       @map("learned_text") @db.Text
+  benefitText              String       @map("benefit_text") @db.Text
+  improvementText          String       @map("improvement_text") @db.Text
+  createdAt                DateTime     @default(now()) @map("created_at")
+  updatedAt                DateTime     @updatedAt @map("updated_at")
+  eventSession             EventSession @relation(fields: [eventSessionId], references: [id], onDelete: Cascade)
+  user                     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventSessionId, userId])
+  @@index([userId])
+  @@map("topic_feedbacks")
+}
+
+model EventReflection {
+  id                String   @id @default(cuid())
+  eventId           String   @map("event_id")
+  userId            String   @map("user_id")
+  overallImpression String   @map("overall_impression") @db.Text
+  mainLearning      String   @map("main_learning") @db.Text
+  suggestion        String?  @db.Text
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  event             Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId])
+  @@map("event_reflections")
+}
+
+model Material {
+  id           String       @id @default(cuid())
+  title        String
+  description  String?      @db.Text
+  type         MaterialType
+  fileUrl      String       @map("file_url")
+  eventId      String?      @map("event_id")
+  classLevelId String?      @map("class_level_id")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  event        Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  classLevel   ClassLevel?  @relation(fields: [classLevelId], references: [id], onDelete: SetNull)
+
+  @@map("materials")
+}
+
+model LearningModule {
+  id           String                   @id @default(cuid())
+  title        String
+  description  String?                  @db.Text
+  classLevelId String?                  @map("class_level_id")
+  orderNumber  Int                      @default(0) @map("order_number")
+  materialUrl  String?                  @map("material_url")
+  isActive     Boolean                  @default(true) @map("is_active")
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  updatedAt    DateTime                 @updatedAt @map("updated_at")
+  classLevel   ClassLevel?              @relation(fields: [classLevelId], references: [id], onDelete: SetNull)
+  progress     LearningModuleProgress[]
+
+  @@index([classLevelId])
+  @@map("learning_modules")
+}
+
+model LearningModuleProgress {
+  id          String         @id @default(cuid())
+  userId      String         @map("user_id")
+  moduleId    String         @map("module_id")
+  isCompleted Boolean        @default(false) @map("is_completed")
+  completedAt DateTime?      @map("completed_at")
+  notes       String?        @db.Text
+  photoUrl    String?        @map("photo_url")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module      LearningModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+  @@index([moduleId])
+  @@map("learning_module_progress")
+}
+
+model DailyWejangan {
+  id                 String               @id @default(cuid())
+  title              String
+  source             String?
+  uploadDate         DateTime             @map("upload_date")
+  content            String               @db.Text
+  reflectionQuestion String?              @map("reflection_question") @db.Text
+  creditReward       Int                  @default(10) @map("credit_reward")
+  createdByAdminId   String?              @map("created_by_admin_id")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+  createdByAdmin     User?                @relation("WejanganCreator", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  reflections        WejanganReflection[]
+
+  @@index([uploadDate])
+  @@index([createdByAdminId])
+  @@map("daily_wejangan")
+}
+
+model WejanganReflection {
+  id            String        @id @default(cuid())
+  wejanganId    String        @map("wejangan_id")
+  userId        String        @map("user_id")
+  answer        String        @db.Text
+  creditAwarded Int           @default(10) @map("credit_awarded")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  wejangan      DailyWejangan @relation(fields: [wejanganId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([wejanganId, userId])
+  @@index([userId])
+  @@map("wejangan_reflections")
+}
+
+model ActivityPost {
+  id              String             @id @default(cuid())
+  userId          String             @map("user_id")
+  caption         String?            @db.Text
+  legacyImageUrl  String?            @map("image_url")
+  type            ActivityType       @default(OTHER)
+  visibility      ActivityVisibility @default(INTERNAL)
+  isHiddenByAdmin Boolean            @default(false) @map("is_hidden_by_admin")
+  deletedAt       DateTime?          @map("deleted_at")
+  legacyIsActive  Boolean            @default(true) @map("is_active")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media           ActivityMedia[]
+  likes           ActivityLike[]
+  comments        ActivityComment[]
+
+  @@index([userId])
+  @@index([type])
+  @@index([visibility, isHiddenByAdmin, deletedAt])
+  @@map("activity_posts")
+}
+
+model ActivityMedia {
+  id          String            @id @default(cuid())
+  postId      String            @map("post_id")
+  mediaUrl    String            @map("media_url") @db.Text
+  mediaType   ActivityMediaType @map("media_type")
+  orderNumber Int               @default(0) @map("order_number")
+  altText     String?           @map("alt_text")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  post        ActivityPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@map("activity_media")
+}
+
+model ActivityLike {
+  id        String       @id @default(cuid())
+  postId    String       @map("post_id")
+  userId    String       @map("user_id")
+  createdAt DateTime     @default(now()) @map("created_at")
+  post      ActivityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId])
+  @@map("activity_likes")
+}
+
+model ActivityComment {
+  id              String       @id @default(cuid())
+  postId          String       @map("post_id")
+  userId          String       @map("user_id")
+  content         String       @db.Text
+  isHiddenByAdmin Boolean      @default(false) @map("is_hidden_by_admin")
+  deletedAt       DateTime?    @map("deleted_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  post            ActivityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([userId])
+  @@index([isHiddenByAdmin, deletedAt])
+  @@map("activity_comments")
+}
+
+model Reward {
+  id           String              @id @default(cuid())
+  name         String
+  description  String?             @db.Text
+  imageUrl     String?             @map("image_url")
+  creditPrice  Int                 @map("credit_price")
+  stock        Int?
+  isActive     Boolean             @default(true) @map("is_active")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+  transactions RewardTransaction[]
+
+  @@map("rewards")
+}
+
+model RewardTransaction {
+  id         String                  @id @default(cuid())
+  userId     String                  @map("user_id")
+  rewardId   String                  @map("reward_id")
+  creditCost Int                     @map("credit_cost")
+  status     RewardTransactionStatus @default(REQUESTED)
+  createdAt  DateTime                @default(now()) @map("created_at")
+  updatedAt  DateTime                @updatedAt @map("updated_at")
+  user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reward     Reward                  @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([rewardId])
+  @@map("reward_transactions")
+}
+
+model CreditLedger {
+  id            String             @id @default(cuid())
+  userId        String             @map("user_id")
+  type          CreditLedgerType
+  source        CreditLedgerSource
+  amount        Int
+  balanceBefore Int                @map("balance_before")
+  balanceAfter  Int                @map("balance_after")
+  referenceId   String?            @map("reference_id")
+  note          String?            @db.Text
+  createdAt     DateTime           @default(now()) @map("created_at")
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([source])
+  @@index([referenceId])
+  @@map("credit_ledger")
+}

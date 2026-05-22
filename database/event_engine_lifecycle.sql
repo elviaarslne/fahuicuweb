@@ -1,0 +1,12 @@
+USE fahuicu_system;
+
+ALTER TABLE events
+  MODIFY COLUMN status ENUM(
+    'DRAFT',
+    'PUBLISHED',
+    'REGISTRATION_OPEN',
+    'ONGOING',
+    'COMPLETED',
+    'FEEDBACK_COLLECTION',
+    'ARCHIVED'
+  ) NOT NULL DEFAULT 'DRAFT';
