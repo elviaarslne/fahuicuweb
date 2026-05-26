@@ -22,6 +22,8 @@ function postInclude() {
     },
     media: { orderBy: { orderNumber: "asc" as const } },
     likes: { select: { userId: true } },
+    views: { select: { viewerId: true, viewedAt: true } },
+    reactions: { select: { userId: true, emoji: true } },
     comments: {
       where: { deletedAt: null },
       include: { user: { select: { id: true, fullName: true, chineseName: true, username: true, profilePhotoUrl: true } } },

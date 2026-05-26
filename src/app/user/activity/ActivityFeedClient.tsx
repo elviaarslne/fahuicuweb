@@ -1,66 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Camera,
-  ChevronLeft,
-  ChevronRight,
-  Edit3,
-  Film,
-  Heart,
-  Image as ImageIcon,
-  MessageCircle,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Send,
-  Trash2,
-  X,
-} from "lucide-react";
-import { activityPostTypes, activityTypeLabel } from "@/lib/activity";
-
-type Media = {
-  id: string;
-  mediaUrl: string;
-  mediaType: "IMAGE" | "VIDEO";
-  orderNumber: number;
-  altText?: string | null;
-};
-
-type Author = {
-  id: string;
-  fullName: string;
-  chineseName?: string | null;
-  email?: string | null;
-  username?: string | null;
-  profilePhotoUrl?: string | null;
-  memberCategory?: string | null;
-  homeBranch?: { name: string } | null;
-  currentClass?: { name: string } | null;
-  userDivisions?: Array<{ division: { name: string }; subdivision?: { name: string } | null }>;
-};
-
-type CommentPreview = {
-  id: string;
-  content: string;
-  createdAt: string;
-  author: Author;
-};
-
-type Post = {
-  id: string;
-  userId: string;
-  caption: string;
-  type: (typeof activityPostTypes)[number];
-  createdAt: string;
-  author: Author;
-  media: Media[];
-  likeCount: number;
-  commentCount: number;
-  likedByMe: boolean;
-  commentsPreview: CommentPreview[];
-};
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Camera, Loader2, Lock, Plus, Send, Sparkles, Trash2, X } from "lucide-react";
 
 type Profile = {
   id: string;
@@ -70,605 +11,447 @@ type Profile = {
   username?: string | null;
   bio?: string | null;
   profilePhotoUrl?: string | null;
-  homeBranch: string;
+  homeBranch?: string | null;
   currentClass?: string | null;
   memberCategory?: string | null;
   divisions: string[];
   postCount: number;
 };
 
-type TabKey = "feed" | "my-posts" | "photos" | "videos" | "documentation";
-
-const tabs: Array<{ key: TabKey; label: string; icon: typeof ImageIcon }> = [
-  { key: "feed", label: "Feed", icon: MoreHorizontal },
-  { key: "my-posts", label: "My Posts", icon: ImageIcon },
-  { key: "photos", label: "Photos", icon: Camera },
-  { key: "videos", label: "Videos", icon: Film },
-  { key: "documentation", label: "Documentation", icon: ImageIcon },
-];
-
-const emptyState: Record<TabKey, string> = {
-  feed: "Belum ada aktivitas internal.",
-  "my-posts": "Belum ada post dari kamu.",
-  photos: "Belum ada foto.",
-  videos: "Belum ada video.",
-  documentation: "Belum ada dokumentasi.",
+type Media = {
+  id: string;
+  mediaUrl: string;
+  mediaType: "IMAGE" | "VIDEO";
+  altText?: string | null;
 };
 
-const postTypeOptions = activityPostTypes.map((type) => ({ value: type, label: activityTypeLabel[type] }));
+type ReactionCount = { emoji: string; count: number };
 
-function displayName(author: Author | Profile) {
-  return author.chineseName || author.fullName;
+type Moment = {
+  id: string;
+  userId: string;
+  caption: string;
+  type: string;
+  createdAt: string;
+  author: {
+    id: string;
+    fullName: string;
+    chineseName?: string | null;
+    username?: string | null;
+    profilePhotoUrl?: string | null;
+    homeBranch?: { name?: string | null } | null;
+    currentClass?: { name?: string | null } | null;
+  };
+  media: Media[];
+  mediaVisible?: boolean;
+  seenByMe?: boolean;
+  isOwnMoment?: boolean;
+  reactionCounts?: ReactionCount[];
+  reactionTotal?: number;
+  myReaction?: string | null;
+};
+
+const REACTIONS = ["🙏", "❤️", "😊", "✨", "🌸"];
+
+function displayName(user?: Moment["author"] | null) {
+  if (!user) return "Fa Hui Cu";
+  return user.chineseName ? `${user.chineseName} ${user.fullName}` : user.fullName;
 }
 
 function initials(name: string) {
   return name.trim().slice(0, 1).toUpperCase() || "F";
 }
 
-function formatTime(value: string) {
+function formatMomentTime(value: string) {
   return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
     timeZone: "Asia/Jakarta",
   }).format(new Date(value));
 }
 
-function formatBranchName(value?: string | null) {
-  if (!value) return null;
-  const normalized = value.toLowerCase().replace(/[\s_-]+/g, "");
-  if (normalized.includes("telukgong") || normalized.includes("guangli") || normalized.includes("kuangli")) return "Kuang Li";
-  return value;
-}
-
-function branchLine(author: Author) {
-  const branch = formatBranchName(author.homeBranch?.name);
-  const currentClass = author.currentClass?.name;
-  const category = author.memberCategory ? author.memberCategory.replaceAll("_", " ").toLowerCase() : null;
-  return [branch, currentClass, category].filter(Boolean).join(" • ") || "Fa Hui Cu";
-}
-
-function Avatar({ author, large = false }: { author: Pick<Author, "fullName" | "chineseName" | "profilePhotoUrl">; large?: boolean }) {
-  const name = author.chineseName || author.fullName;
+function Avatar({ user, size = "md" }: { user?: Moment["author"] | null; size?: "sm" | "md" | "lg" }) {
+  const name = displayName(user);
+  const sizeClass = size === "lg" ? "h-16 w-16 text-xl" : size === "sm" ? "h-9 w-9 text-sm" : "h-11 w-11 text-base";
   return (
-    <div className={`${large ? "size-24 text-3xl" : "size-11 text-sm"} grid shrink-0 place-items-center overflow-hidden rounded-full bg-[#FFF8E8] font-black text-[#9A6A00] ring-2 ring-[#F4C62B]/25`}>
-      {author.profilePhotoUrl ? <img src={author.profilePhotoUrl} alt={name} className="h-full w-full object-cover" /> : initials(name)}
+    <div className={`${sizeClass} grid shrink-0 place-items-center overflow-hidden rounded-full bg-[#F4C62B] font-black text-[#1F1F1F] ring-2 ring-[#FFF8E8]`}>
+      {user?.profilePhotoUrl ? <img src={user.profilePhotoUrl} alt={name} className="h-full w-full object-cover" /> : initials(name)}
     </div>
   );
 }
 
-function SoftEmpty({ tab }: { tab: TabKey }) {
+function ReactionSummary({ counts }: { counts?: ReactionCount[] }) {
+  if (!counts?.length) return <span className="text-xs font-semibold text-[#6B6254]">Belum ada reaksi</span>;
   return (
-    <div className="grid min-h-56 place-items-center rounded-[2rem] border border-dashed border-[#E8DDC4] bg-white/80 p-8 text-center">
-      <div>
-        <div className="mx-auto grid size-14 place-items-center rounded-full bg-[#FFF8E8] text-[#A17700]">
-          <Camera size={24} />
+    <span className="text-xs font-bold text-[#1F1F1F]">
+      {counts.map((item) => `${item.emoji} ${item.count}`).join("  ")}
+    </span>
+  );
+}
+
+function MomentTile({ moment, onOpen }: { moment: Moment; onOpen: (moment: Moment) => void }) {
+  const cover = moment.media[0];
+  const locked = Boolean(moment.seenByMe && !moment.isOwnMoment);
+  const name = displayName(moment.author);
+
+  return (
+    <button
+      type="button"
+      onClick={() => !locked && onOpen(moment)}
+      disabled={locked}
+      className="group relative aspect-square overflow-hidden rounded-[2rem] border border-[#E8DDC4] bg-[#FFF8E8] text-left shadow-sm shadow-amber-900/5 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-amber-900/10 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
+    >
+      {cover?.mediaUrl && !locked ? (
+        <img
+          src={cover.mediaUrl}
+          alt="Moment"
+          draggable={false}
+          onContextMenu={(event) => event.preventDefault()}
+          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+        />
+      ) : (
+        <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#FFF8E8] via-[#F8F1DE] to-[#E8DDC4]">
+          <div className="grid place-items-center gap-3 text-center text-[#6B6254]">
+            <Lock size={26} />
+            <span className="text-sm font-black">Sudah dilihat</span>
+          </div>
         </div>
-        <p className="mt-4 font-black text-[#1F1F1F]">{emptyState[tab]}</p>
-      </div>
-    </div>
-  );
-}
-
-function MediaCarousel({ media }: { media: Media[] }) {
-  const [index, setIndex] = useState(0);
-  if (media.length === 0) return null;
-  const item = media[Math.min(index, media.length - 1)];
-  return (
-    <div className="relative overflow-hidden rounded-[1.75rem] border border-[#E8DDC4] bg-[#1F1F1F]">
-      <div className="grid aspect-[4/3] place-items-center bg-[#FFF8E8]">
-        {item.mediaType === "VIDEO" ? (
-          <video src={item.mediaUrl} controls className="h-full w-full object-contain" />
-        ) : (
-          <img src={item.mediaUrl} alt={item.altText || "Activity media"} className="h-full w-full object-cover" />
-        )}
-      </div>
-      {media.length > 1 ? (
-        <>
-          <button type="button" onClick={() => setIndex((current) => (current - 1 + media.length) % media.length)} className="absolute left-3 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-[#1F1F1F] shadow-sm" aria-label="Media sebelumnya">
-            <ChevronLeft size={18} />
-          </button>
-          <button type="button" onClick={() => setIndex((current) => (current + 1) % media.length)} className="absolute right-3 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-[#1F1F1F] shadow-sm" aria-label="Media berikutnya">
-            <ChevronRight size={18} />
-          </button>
-          <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5 rounded-full bg-black/35 px-3 py-2 backdrop-blur">
-            {media.map((mediaItem, dotIndex) => (
-              <span key={mediaItem.id} className={`size-1.5 rounded-full ${dotIndex === index ? "bg-[#F4C62B]" : "bg-white/70"}`} />
-            ))}
+      )}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-white">
+        <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black">{name}</p>
+            <p className="text-xs text-white/75">{formatMomentTime(moment.createdAt)}</p>
           </div>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-function MyPostGridCard({ post, onOpen }: { post: Post; onOpen: (post: Post) => void }) {
-  const cover = post.media[0];
-  return (
-    <button type="button" onClick={() => onOpen(post)} className="group relative overflow-hidden rounded-2xl border border-[#E8DDC4] bg-[#FFF8E8] text-left focus-ring">
-      <div className="aspect-square">
-        {cover ? (
-          cover.mediaType === "VIDEO" ? (
-            <video src={cover.mediaUrl} className="h-full w-full object-cover" muted />
-          ) : (
-            <img src={cover.mediaUrl} alt={cover.altText || post.caption || "Activity post"} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
-          )
-        ) : (
-          <div className="grid h-full place-items-center p-5 text-center text-sm font-bold text-[#6B6254]">
-            {post.caption || "Activity"}
-          </div>
-        )}
-      </div>
-      {post.media.length > 1 ? <span className="absolute right-2 top-2 rounded-full bg-black/55 px-2 py-1 text-xs font-black text-white">1/{post.media.length}</span> : null}
-      <div className="absolute inset-0 flex items-center justify-center gap-5 bg-[#1F1F1F]/0 text-white opacity-0 transition group-hover:bg-[#1F1F1F]/45 group-hover:opacity-100">
-        <span className="inline-flex items-center gap-2 text-sm font-black"><Heart size={18} fill="currentColor" /> {post.likeCount}</span>
-        <span className="inline-flex items-center gap-2 text-sm font-black"><MessageCircle size={18} fill="currentColor" /> {post.commentCount}</span>
+          <span className="rounded-full bg-white/20 px-2.5 py-1 text-xs font-black backdrop-blur">{moment.reactionTotal || 0} reaksi</span>
+        </div>
       </div>
     </button>
   );
 }
 
-function MediaGrid({ posts, onOpen }: { posts: Post[]; onOpen: (post: Post) => void }) {
+function EmptyState({ text }: { text: string }) {
   return (
-    <div className="grid grid-cols-3 gap-2 sm:gap-3">
-      {posts.map((post) => <MyPostGridCard key={post.id} post={post} onOpen={onOpen} />)}
+    <div className="rounded-[2rem] border border-dashed border-[#E8DDC4] bg-[#FFFDF7] p-10 text-center text-[#6B6254]">
+      <Sparkles className="mx-auto mb-3 text-[#F4C62B]" size={28} />
+      <p className="font-semibold">{text}</p>
     </div>
   );
 }
 
-function CreatePostModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
-  const [caption, setCaption] = useState("");
-  const [type, setType] = useState<(typeof activityPostTypes)[number]>("EVENT_PHOTO");
-  const [photos, setPhotos] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
-  const [message, setMessage] = useState("");
-  const [saving, setSaving] = useState(false);
+function MomentModal({
+  moment,
+  viewerName,
+  onClose,
+  onReact,
+  onDelete,
+}: {
+  moment: Moment;
+  viewerName: string;
+  onClose: () => void;
+  onReact: (emoji: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const cover = moment.media[0];
+  const [reacting, setReacting] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    const nextPreviews = photos.map((file) => URL.createObjectURL(file));
-    setPreviews(nextPreviews);
-    return () => nextPreviews.forEach((url) => URL.revokeObjectURL(url));
-  }, [photos]);
-
-  if (!open) return null;
-
-  function resetForm() {
-    setCaption("");
-    setType("EVENT_PHOTO");
-    setPhotos([]);
-    setMessage("");
+  async function sendReaction(emoji: string) {
+    setReacting(emoji);
+    await onReact(emoji);
+    setReacting(null);
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setSaving(true);
-    setMessage("");
-    if (!caption.trim() && photos.length === 0) {
-      setSaving(false);
-      setMessage("Pilih foto atau tulis caption terlebih dahulu.");
-      return;
-    }
-
-    const uploadedMedia = [];
-    for (const photo of photos) {
-      const formData = new FormData();
-      formData.append("file", photo);
-      const uploadResponse = await fetch("/api/activity/upload", { method: "POST", body: formData });
-      const uploadData = await uploadResponse.json();
-      if (!uploadResponse.ok) {
-        setSaving(false);
-        setMessage(uploadData.error || "Foto gagal diupload.");
-        return;
-      }
-      uploadedMedia.push({ mediaUrl: uploadData.mediaUrl, mediaType: "IMAGE" as const, orderNumber: uploadedMedia.length });
-    }
-
-    const response = await fetch("/api/activity/posts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ caption, type, media: uploadedMedia }),
-    });
-    const data = await response.json();
-    setSaving(false);
-    if (!response.ok) {
-      setMessage(data.error || "Post gagal disimpan.");
-      return;
-    }
-    resetForm();
-    onCreated();
-    onClose();
+  async function deleteMoment() {
+    if (!confirm("Hapus Moment ini?")) return;
+    setDeleting(true);
+    await onDelete(moment.id);
+    setDeleting(false);
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-[#1F1F1F]/30 backdrop-blur-sm sm:place-items-center sm:p-4">
-      <button type="button" className="absolute inset-0" onClick={onClose} aria-label="Tutup" />
-      <form onSubmit={submit} className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-[2rem] border border-[#E8DDC4] bg-[#FFFDF7] p-5 shadow-2xl sm:max-w-2xl sm:rounded-[2rem] sm:p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#A17700]">Activity</p>
-            <h2 className="mt-1 text-2xl font-black text-[#1F1F1F]">Buat Post</h2>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1F1F1F]/70 p-3 backdrop-blur-sm">
+      <button type="button" aria-label="Tutup" className="absolute inset-0" onClick={onClose} />
+      <article className="relative grid max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[2rem] border border-[#E8DDC4] bg-[#FFFDF7] shadow-2xl md:grid-cols-[minmax(0,1.1fr)_360px]">
+        <div className="relative min-h-[420px] bg-[#1F1F1F]" onContextMenu={(event) => event.preventDefault()}>
+          {cover?.mediaUrl ? (
+            <img src={cover.mediaUrl} alt="Moment" draggable={false} className="h-full max-h-[92vh] w-full object-contain select-none" />
+          ) : (
+            <div className="grid h-full min-h-[420px] place-items-center text-white">Moment tidak tersedia.</div>
+          )}
+          <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent p-4 text-xs font-bold text-white/80">
+            Mohon tidak screenshot. Moment ini hanya untuk dilihat sekali.
           </div>
-          <button type="button" onClick={() => { resetForm(); onClose(); }} className="grid size-10 place-items-center rounded-full bg-[#F8F1DE] text-[#1F1F1F]" aria-label="Tutup modal"><X size={18} /></button>
+          <div className="pointer-events-none absolute bottom-4 right-4 rounded-full bg-black/35 px-3 py-1 text-xs font-bold text-white/75 backdrop-blur">
+            Dilihat oleh {viewerName}
+          </div>
         </div>
-        <div className="mt-6 grid gap-4">
-          <label className="grid gap-2 text-sm font-bold text-[#6B6254]">
-            Jenis post
-            <select value={type} onChange={(event) => setType(event.target.value as (typeof activityPostTypes)[number])} className="rounded-2xl border border-[#E8DDC4] bg-white px-4 py-3 font-normal text-[#1F1F1F]">
-              {postTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </label>
-          <div className="grid gap-3 rounded-3xl border border-dashed border-[#E8DDC4] bg-[#FFF8E8]/70 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-black text-[#1F1F1F]">Media</p>
-                <p className="text-sm text-[#6B6254]">Upload foto dari device kamu. Bisa lebih dari satu.</p>
+        <div className="flex min-h-0 flex-col bg-[#FFFDF7]">
+          <header className="flex items-center justify-between gap-3 border-b border-[#E8DDC4] p-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <Avatar user={moment.author} />
+              <div className="min-w-0">
+                <p className="truncate font-black text-[#1F1F1F]">{displayName(moment.author)}</p>
+                <p className="text-xs font-semibold text-[#6B6254]">{moment.author.username ? `@${moment.author.username}` : formatMomentTime(moment.createdAt)}</p>
               </div>
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#F4C62B] px-5 py-3 text-sm font-black text-[#1F1F1F] hover:bg-[#E8B923]">
-                <Camera size={17} /> Pilih Foto
-                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple className="hidden" onChange={(event) => setPhotos(Array.from(event.target.files || []))} />
-              </label>
             </div>
-            {previews.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {previews.map((preview, index) => (
-                  <div key={preview} className="relative overflow-hidden rounded-2xl border border-[#E8DDC4] bg-white">
-                    <img src={preview} alt={`Preview ${index + 1}`} className="aspect-square w-full object-cover" />
-                  </div>
+            <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full border border-[#E8DDC4] bg-white text-[#1F1F1F]">
+              <X size={18} />
+            </button>
+          </header>
+          <div className="flex-1 space-y-5 overflow-y-auto p-4">
+            <div className="rounded-3xl border border-[#E8DDC4] bg-[#FFF8E8] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A17700]">Reaksi</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {REACTIONS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => sendReaction(emoji)}
+                    disabled={Boolean(reacting)}
+                    className={`rounded-full border px-4 py-2 text-2xl transition hover:-translate-y-0.5 ${moment.myReaction === emoji ? "border-[#F4C62B] bg-[#F4C62B]" : "border-[#E8DDC4] bg-white"}`}
+                  >
+                    {reacting === emoji ? <Loader2 className="animate-spin" size={20} /> : emoji}
+                  </button>
                 ))}
               </div>
-            ) : null}
-            {photos.length > 0 ? <button type="button" onClick={() => setPhotos([])} className="justify-self-start rounded-full border border-[#E8DDC4] bg-white px-4 py-2 text-sm font-bold text-[#6B6254]">Hapus pilihan foto</button> : null}
-          </div>
-          <label className="grid gap-2 text-sm font-bold text-[#6B6254]">
-            Caption
-            <textarea value={caption} onChange={(event) => setCaption(event.target.value)} placeholder="Tulis caption singkat..." className="min-h-32 rounded-2xl border border-[#E8DDC4] bg-white px-4 py-3 font-normal text-[#1F1F1F]" />
-          </label>
-        </div>
-        {message ? <p className="mt-4 text-sm font-bold text-rose-600">{message}</p> : null}
-        <button disabled={saving} className="mt-6 rounded-2xl bg-[#F4C62B] px-6 py-3 text-sm font-black text-[#1F1F1F] transition hover:bg-[#E8B923] disabled:opacity-60">{saving ? "Mengupload..." : "Upload"}</button>
-      </form>
-    </div>
-  );
-}
-
-function ProfileEditModal({ profile, open, onClose, onUpdated }: { profile: Profile; open: boolean; onClose: () => void; onUpdated: (profile: Partial<Profile>) => void }) {
-  const [username, setUsername] = useState(profile.username || "");
-  const [bio, setBio] = useState(profile.bio || "");
-  const [message, setMessage] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setUsername(profile.username || "");
-    setBio(profile.bio || "");
-  }, [profile.username, profile.bio]);
-
-  if (!open) return null;
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setSaving(true);
-    setMessage("");
-    const response = await fetch("/api/settings/activity-profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, bio }),
-    });
-    const data = await response.json();
-    setSaving(false);
-    if (!response.ok) {
-      setMessage(data.error || "Profil gagal disimpan.");
-      return;
-    }
-    onUpdated({ username: data.user.username, bio: data.user.bio });
-    onClose();
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-[#1F1F1F]/30 backdrop-blur-sm sm:place-items-center sm:p-4">
-      <button type="button" className="absolute inset-0" onClick={onClose} aria-label="Tutup" />
-      <form onSubmit={submit} className="relative w-full rounded-t-[2rem] border border-[#E8DDC4] bg-[#FFFDF7] p-5 shadow-2xl sm:max-w-lg sm:rounded-[2rem] sm:p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#A17700]">Profile Activity</p>
-            <h2 className="mt-1 text-2xl font-black text-[#1F1F1F]">Edit Profile</h2>
-          </div>
-          <button type="button" onClick={onClose} className="grid size-10 place-items-center rounded-full bg-[#F8F1DE] text-[#1F1F1F]" aria-label="Tutup modal"><X size={18} /></button>
-        </div>
-        <label className="mt-5 grid gap-2 text-sm font-bold text-[#6B6254]">
-          Username
-          <input value={username} onChange={(event) => setUsername(event.target.value.replace(/^@/, "").toLowerCase())} placeholder="contoh: dharma.journey" className="rounded-2xl border border-[#E8DDC4] bg-white px-4 py-3 font-normal text-[#1F1F1F]" />
-        </label>
-        <label className="mt-4 grid gap-2 text-sm font-bold text-[#6B6254]">
-          Bio
-          <textarea value={bio} onChange={(event) => setBio(event.target.value)} maxLength={500} placeholder="Bio singkat tentang kamu..." className="min-h-24 rounded-2xl border border-[#E8DDC4] bg-white px-4 py-3 font-normal text-[#1F1F1F]" />
-        </label>
-        <p className="mt-3 text-xs text-[#6B6254]">Username opsional, 3-24 karakter: huruf kecil, angka, titik, dan underscore.</p>
-        {message ? <p className="mt-4 text-sm font-bold text-rose-600">{message}</p> : null}
-        <button disabled={saving} className="mt-6 rounded-2xl bg-[#F4C62B] px-6 py-3 text-sm font-black text-[#1F1F1F] transition hover:bg-[#E8B923] disabled:opacity-60">{saving ? "Menyimpan..." : "Simpan"}</button>
-      </form>
-    </div>
-  );
-}
-
-function EditPostModal({ post, open, onClose, onUpdated }: { post: Post | null; open: boolean; onClose: () => void; onUpdated: () => void }) {
-  const [caption, setCaption] = useState("");
-  const [type, setType] = useState<(typeof activityPostTypes)[number]>("OTHER");
-  const [message, setMessage] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!post) return;
-    setCaption(post.caption || "");
-    setType(post.type);
-    setMessage("");
-  }, [post]);
-
-  if (!open || !post) return null;
-  const currentPost = post;
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setSaving(true);
-    setMessage("");
-    const response = await fetch(`/api/activity/posts/${currentPost.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ caption, type, media: currentPost.media.map((item, index) => ({ mediaUrl: item.mediaUrl, mediaType: item.mediaType, orderNumber: index, altText: item.altText })) }),
-    });
-    const data = await response.json();
-    setSaving(false);
-    if (!response.ok) {
-      setMessage(data.error || "Post gagal diupdate.");
-      return;
-    }
-    onUpdated();
-    onClose();
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-[#1F1F1F]/30 backdrop-blur-sm sm:place-items-center sm:p-4">
-      <button type="button" className="absolute inset-0" onClick={onClose} aria-label="Tutup" />
-      <form onSubmit={submit} className="relative w-full rounded-t-[2rem] border border-[#E8DDC4] bg-[#FFFDF7] p-5 shadow-2xl sm:max-w-lg sm:rounded-[2rem] sm:p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#A17700]">Edit Post</p>
-            <h2 className="mt-1 text-2xl font-black text-[#1F1F1F]">Update caption</h2>
-          </div>
-          <button type="button" onClick={onClose} className="grid size-10 place-items-center rounded-full bg-[#F8F1DE] text-[#1F1F1F]" aria-label="Tutup modal"><X size={18} /></button>
-        </div>
-        <label className="mt-5 grid gap-2 text-sm font-bold text-[#6B6254]">
-          Jenis post
-          <select value={type} onChange={(event) => setType(event.target.value as (typeof activityPostTypes)[number])} className="rounded-2xl border border-[#E8DDC4] bg-white px-4 py-3 font-normal text-[#1F1F1F]">
-            {postTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-        </label>
-        <label className="mt-4 grid gap-2 text-sm font-bold text-[#6B6254]">
-          Caption
-          <textarea value={caption} onChange={(event) => setCaption(event.target.value)} className="min-h-32 rounded-2xl border border-[#E8DDC4] bg-white px-4 py-3 font-normal text-[#1F1F1F]" />
-        </label>
-        {message ? <p className="mt-4 text-sm font-bold text-rose-600">{message}</p> : null}
-        <button disabled={saving} className="mt-6 rounded-2xl bg-[#F4C62B] px-6 py-3 text-sm font-black text-[#1F1F1F] transition hover:bg-[#E8B923] disabled:opacity-60">{saving ? "Menyimpan..." : "Simpan"}</button>
-      </form>
-    </div>
-  );
-}
-
-function PostDetailModal({ post, open, onClose, onRefresh, currentUserId }: { post: Post | null; open: boolean; onClose: () => void; onRefresh: () => void; currentUserId: string }) {
-  if (!open || !post) return null;
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-[#1F1F1F]/35 backdrop-blur-sm sm:place-items-center sm:p-4">
-      <button type="button" className="absolute inset-0" onClick={onClose} aria-label="Tutup" />
-      <div className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-[2rem] border border-[#E8DDC4] bg-[#FFFDF7] p-4 shadow-2xl sm:max-w-3xl sm:rounded-[2rem]">
-        <button type="button" onClick={onClose} className="absolute right-4 top-4 z-10 grid size-10 place-items-center rounded-full bg-white/90 text-[#1F1F1F] shadow-sm" aria-label="Tutup"><X size={18} /></button>
-        <PostCard post={post} currentUserId={currentUserId} onRefresh={onRefresh} compact={false} />
-      </div>
-    </div>
-  );
-}
-
-function PostCard({ post, currentUserId, onRefresh, compact = false }: { post: Post; currentUserId: string; onRefresh: () => void; compact?: boolean }) {
-  const [comment, setComment] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const ownedByMe = post.userId === currentUserId;
-
-  async function toggleLike() {
-    setBusy(true);
-    await fetch(`/api/activity/posts/${post.id}/like`, { method: "POST" });
-    setBusy(false);
-    onRefresh();
-  }
-
-  async function submitComment(event: FormEvent) {
-    event.preventDefault();
-    if (!comment.trim()) return;
-    setBusy(true);
-    const response = await fetch(`/api/activity/posts/${post.id}/comments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: comment }),
-    });
-    setBusy(false);
-    if (response.ok) {
-      setComment("");
-      onRefresh();
-      setCommentsOpen(true);
-    }
-  }
-
-  async function deletePost() {
-    if (!window.confirm("Hapus post ini?")) return;
-    setBusy(true);
-    await fetch(`/api/activity/posts/${post.id}`, { method: "DELETE" });
-    setBusy(false);
-    onRefresh();
-  }
-
-  return (
-    <article className={`${compact ? "" : "rounded-[2rem] border border-[#E8DDC4] bg-[#FFFDF7]"} p-4 shadow-sm shadow-amber-900/5 sm:p-5`}>
-      <div className="flex items-start gap-3">
-        <Avatar author={post.author} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate font-black text-[#1F1F1F]">{displayName(post.author)}</p>
-            {post.author.username ? <p className="text-sm font-semibold text-[#6B6254]">@{post.author.username}</p> : null}
-          </div>
-          <p className="mt-0.5 text-xs text-[#6B6254]">{branchLine(post.author)} • {formatTime(post.createdAt)}</p>
-        </div>
-        {ownedByMe ? (
-          <div className="flex shrink-0 gap-1">
-            <button type="button" onClick={() => setEditing(true)} className="grid size-9 place-items-center rounded-full bg-[#FFF8E8] text-[#6B6254] hover:bg-[#F8F1DE]" aria-label="Edit post"><Edit3 size={15} /></button>
-            <button type="button" onClick={deletePost} className="grid size-9 place-items-center rounded-full bg-[#FFF8E8] text-rose-600 hover:bg-rose-50" aria-label="Hapus post"><Trash2 size={15} /></button>
-          </div>
-        ) : null}
-      </div>
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-[#F4C62B]/25 px-3 py-1 text-xs font-black text-[#8A6500]">{activityTypeLabel[post.type]}</span>
-        <span className="text-xs font-semibold text-[#6B6254]">Internal</span>
-      </div>
-      <div className="mt-4"><MediaCarousel media={post.media} /></div>
-      {post.caption ? <p className="mt-4 whitespace-pre-line text-[15px] leading-7 text-[#1F1F1F]">{post.caption}</p> : null}
-      <div className="mt-4 flex items-center gap-3 border-t border-[#E8DDC4] pt-4">
-        <button type="button" disabled={busy} onClick={toggleLike} className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-black transition ${post.likedByMe ? "bg-[#EFA3C8]/30 text-rose-700" : "bg-[#FFF8E8] text-[#1F1F1F] hover:bg-[#F8F1DE]"}`}>
-          <Heart size={17} fill={post.likedByMe ? "currentColor" : "none"} /> {post.likeCount}
-        </button>
-        <button type="button" onClick={() => setCommentsOpen((current) => !current)} className="inline-flex items-center gap-2 rounded-full bg-[#FFF8E8] px-4 py-2 text-sm font-black text-[#1F1F1F] hover:bg-[#F8F1DE]">
-          <MessageCircle size={17} /> {post.commentCount}
-        </button>
-      </div>
-      {post.commentsPreview.length > 0 && !commentsOpen ? (
-        <div className="mt-4 rounded-2xl bg-[#FFF8E8]/70 px-4 py-3 text-sm text-[#1F1F1F]">
-          <span className="font-black">{displayName(post.commentsPreview[0].author)}</span> {post.commentsPreview[0].content}
-        </div>
-      ) : null}
-      {commentsOpen ? (
-        <div className="mt-4 space-y-3">
-          {post.commentsPreview.length > 0 ? post.commentsPreview.map((item) => (
-            <div key={item.id} className="rounded-2xl bg-[#FFF8E8]/70 px-4 py-3 text-sm text-[#1F1F1F]">
-              <div className="flex items-start justify-between gap-3">
-                <p><span className="font-black">{displayName(item.author)}</span> {item.content}</p>
-                <button type="button" onClick={() => setComment(`@${item.author.username || displayName(item.author)} `)} className="shrink-0 text-xs font-black text-[#A17700]">Balas</button>
-              </div>
+              <div className="mt-4"><ReactionSummary counts={moment.reactionCounts} /></div>
             </div>
-          )) : <p className="rounded-2xl bg-[#FFF8E8]/70 px-4 py-3 text-sm text-[#6B6254]">Belum ada komentar.</p>}
-          <form onSubmit={submitComment} className="flex gap-2">
-            <input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Tambah komentar..." className="min-w-0 flex-1 rounded-full border border-[#E8DDC4] bg-white px-4 py-2 text-sm" />
-            <button disabled={busy || !comment.trim()} className="grid size-10 place-items-center rounded-full bg-[#2E7D61] text-white disabled:opacity-45" aria-label="Kirim komentar"><Send size={16} /></button>
-          </form>
+            {moment.isOwnMoment ? (
+              <button
+                type="button"
+                onClick={deleteMoment}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-black text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+              >
+                {deleting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+                Hapus Moment
+              </button>
+            ) : null}
+          </div>
         </div>
-      ) : null}
-      <EditPostModal post={post} open={editing} onClose={() => setEditing(false)} onUpdated={onRefresh} />
-    </article>
+      </article>
+    </div>
   );
 }
 
-export default function ActivityFeedClient({ profile: initialProfile }: { profile: Profile }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [profile, setProfile] = useState(initialProfile);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [tab, setTab] = useState<TabKey>(() => {
-    const requested = searchParams.get("tab") as TabKey | null;
-    return requested && tabs.some((item) => item.key === requested) ? requested : "feed";
-  });
+export default function ActivityFeedClient({ profile }: { profile: Profile }) {
+  const [tab, setTab] = useState<"explore" | "mine">("explore");
+  const [moments, setMoments] = useState<Moment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [message, setMessage] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [selectedMoment, setSelectedMoment] = useState<Moment | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
-  async function loadPosts() {
+  const viewerName = profile.username ? `@${profile.username}` : profile.fullName;
+
+  async function loadMoments() {
     setLoading(true);
     const response = await fetch("/api/activity/posts", { cache: "no-store" });
-    const data = await response.json();
-    setPosts(response.ok ? data.posts || [] : []);
+    const data = await response.json().catch(() => null);
     setLoading(false);
+    if (!response.ok) {
+      setMessage(data?.error || "Gagal memuat Moments.");
+      return;
+    }
+    setMoments(data.posts || []);
   }
 
-  useEffect(() => { void loadPosts(); }, []);
+  useEffect(() => {
+    loadMoments();
+  }, []);
 
-  function changeTab(nextTab: TabKey) {
-    setTab(nextTab);
-    router.replace(`/user/activity?tab=${nextTab}`, { scroll: false });
+  useEffect(() => {
+    if (!selectedFile) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(selectedFile);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [selectedFile]);
+
+  const visibleMoments = useMemo(() => moments.filter((moment) => moment.media.length > 0 || moment.seenByMe), [moments]);
+  const myMoments = useMemo(() => moments.filter((moment) => moment.userId === profile.id), [moments, profile.id]);
+  const gridMoments = tab === "mine" ? myMoments : visibleMoments.filter((moment) => moment.userId !== profile.id);
+
+  function chooseFile(file?: File | null) {
+    setMessage("");
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setMessage("Pilih file gambar untuk Moment.");
+      return;
+    }
+    setSelectedFile(file);
   }
 
-  const filteredPosts = useMemo(() => {
-    if (tab === "my-posts") return posts.filter((post) => post.userId === profile.id);
-    if (tab === "photos") return posts.filter((post) => post.media.some((media) => media.mediaType === "IMAGE"));
-    if (tab === "videos") return posts.filter((post) => post.media.some((media) => media.mediaType === "VIDEO"));
-    if (tab === "documentation") return posts.filter((post) => post.type === "DOCUMENTATION" || post.type === "EVENT_PHOTO");
-    return posts;
-  }, [posts, profile.id, tab]);
+  async function uploadMoment() {
+    if (!selectedFile) {
+      setMessage("Pilih foto terlebih dahulu.");
+      return;
+    }
+    setUploading(true);
+    setMessage("");
+    try {
+      const form = new FormData();
+      form.append("file", selectedFile);
+      const uploadResponse = await fetch("/api/activity/upload", { method: "POST", body: form });
+      const uploadData = await uploadResponse.json().catch(() => null);
+      if (!uploadResponse.ok) throw new Error(uploadData?.error || "Upload foto gagal.");
 
-  const profilePostCount = posts.filter((post) => post.userId === profile.id).length || profile.postCount;
-  const isGridTab = tab === "my-posts" || tab === "photos" || tab === "videos";
+      const postResponse = await fetch("/api/activity/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caption: null,
+          type: "OTHER",
+          media: [{ mediaUrl: uploadData.mediaUrl, mediaType: "IMAGE", orderNumber: 0 }],
+        }),
+      });
+      const postData = await postResponse.json().catch(() => null);
+      if (!postResponse.ok) throw new Error(postData?.error || "Moment gagal dikirim.");
+
+      setSelectedFile(null);
+      if (inputRef.current) inputRef.current.value = "";
+      setMessage("Moment terkirim.");
+      setTab("mine");
+      await loadMoments();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Moment gagal dikirim.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function openMoment(moment: Moment) {
+    if (moment.seenByMe && !moment.isOwnMoment) return;
+    setSelectedMoment(moment);
+    if (!moment.isOwnMoment) {
+      await fetch(`/api/activity/posts/${moment.id}/view`, { method: "POST" }).catch(() => null);
+    }
+  }
+
+  async function closeMoment() {
+    setSelectedMoment(null);
+    await loadMoments();
+  }
+
+  async function reactToMoment(emoji: string) {
+    if (!selectedMoment) return;
+    const response = await fetch(`/api/activity/posts/${selectedMoment.id}/reaction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emoji }),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      setMessage(data?.error || "Reaksi gagal dikirim.");
+      return;
+    }
+    setSelectedMoment((current) => current ? { ...current, ...data } : current);
+  }
+
+  async function deleteMoment(id: string) {
+    const response = await fetch(`/api/activity/posts/${id}`, { method: "DELETE" });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      setMessage(data?.error || "Moment gagal dihapus.");
+      return;
+    }
+    setSelectedMoment(null);
+    setMessage("Moment dihapus.");
+    await loadMoments();
+  }
 
   return (
-    <div className="min-h-[70vh] rounded-[2rem] bg-[#FFFDF7] p-4 sm:p-6">
-      <section className="rounded-[2rem] border border-[#E8DDC4] bg-gradient-to-br from-[#FFFDF7] via-[#FFF8E8] to-[#F8F1DE] p-5 shadow-sm shadow-amber-900/5">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Avatar author={profile} large />
+    <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+      <section className="overflow-hidden rounded-[2rem] border border-[#E8DDC4] bg-[#FFFDF7] shadow-sm shadow-amber-900/5">
+        <div className="grid gap-6 p-5 md:grid-cols-[1fr_360px] md:p-7">
+          <div className="flex items-center gap-4">
+            <Avatar user={{ id: profile.id, fullName: profile.fullName, chineseName: profile.chineseName, username: profile.username, profilePhotoUrl: profile.profilePhotoUrl }} size="lg" />
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-3xl font-black text-[#1F1F1F]">{displayName(profile)}</h1>
-                <span className="rounded-full bg-[#2E7D61]/12 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#2E7D61]">Internal</span>
-              </div>
-              {profile.username ? <p className="mt-1 text-sm font-semibold text-[#6B6254]">@{profile.username}</p> : <p className="mt-1 text-sm font-semibold text-[#A17700]">Buat username kreatifmu</p>}
-              <p className="mt-1 text-sm text-[#6B6254]">{profile.email}</p>
-              {profile.bio ? <p className="mt-3 max-w-2xl text-sm leading-6 text-[#1F1F1F]">{profile.bio}</p> : null}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="rounded-full border border-[#E8DDC4] bg-white px-3 py-1 text-xs font-bold text-[#6B6254]">{formatBranchName(profile.homeBranch) || profile.homeBranch}</span>
-                {profile.currentClass ? <span className="rounded-full border border-[#E8DDC4] bg-white px-3 py-1 text-xs font-bold text-[#6B6254]">{profile.currentClass}</span> : null}
-                {profile.memberCategory ? <span className="rounded-full border border-[#E8DDC4] bg-white px-3 py-1 text-xs font-bold text-[#6B6254]">{profile.memberCategory.replaceAll("_", " ")}</span> : null}
-                {profile.divisions.slice(0, 4).map((division) => <span key={division} className="rounded-full border border-[#E8DDC4] bg-white px-3 py-1 text-xs font-bold text-[#6B6254]">{division}</span>)}
-                <span className="rounded-full border border-[#E8DDC4] bg-[#FFF8E8] px-3 py-1 text-xs font-bold text-[#A17700]">Achievement badge</span>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-[#A17700]">Moments</p>
+              <h1 className="mt-1 text-3xl font-black text-[#1F1F1F]">Bagikan momen apa adanya.</h1>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-[#6B6254]">
+                {profile.username ? <span className="rounded-full bg-[#FFF8E8] px-3 py-1">@{profile.username}</span> : null}
+                {profile.homeBranch ? <span className="rounded-full bg-[#FFF8E8] px-3 py-1">{profile.homeBranch}</span> : null}
+                {profile.currentClass ? <span className="rounded-full bg-[#FFF8E8] px-3 py-1">{profile.currentClass}</span> : null}
+                <span className="rounded-full bg-[#FFF8E8] px-3 py-1">{myMoments.length} Moment</span>
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-2xl border border-[#E8DDC4] bg-white px-5 py-3 text-center">
-              <p className="text-2xl font-black text-[#1F1F1F]">{profilePostCount}</p>
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#6B6254]">Posts</p>
-            </div>
-            <button type="button" onClick={() => setProfileOpen(true)} className="inline-flex items-center gap-2 rounded-full border border-[#E8DDC4] bg-white px-5 py-3 text-sm font-black text-[#1F1F1F]"><Pencil size={16} /> Edit Profile</button>
-            <button type="button" onClick={() => setCreateOpen(true)} className="inline-flex items-center gap-2 rounded-full bg-[#F4C62B] px-5 py-3 text-sm font-black text-[#1F1F1F] shadow-sm shadow-amber-900/10 hover:bg-[#E8B923]"><Plus size={17} /> New Post</button>
+
+          <div className="rounded-[1.75rem] border border-[#E8DDC4] bg-[#FFF8E8] p-4">
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(event) => chooseFile(event.target.files?.[0])}
+            />
+            {previewUrl ? (
+              <div className="space-y-3">
+                <img src={previewUrl} alt="Preview Moment" className="aspect-square w-full rounded-[1.5rem] object-cover" />
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => inputRef.current?.click()} className="rounded-full border border-[#E8DDC4] bg-white px-4 py-3 text-sm font-black text-[#1F1F1F]">Ganti Foto</button>
+                  <button type="button" onClick={uploadMoment} disabled={uploading} className="inline-flex items-center justify-center gap-2 rounded-full bg-[#F4C62B] px-4 py-3 text-sm font-black text-[#1F1F1F] transition hover:bg-[#E8B923] disabled:opacity-60">
+                    {uploading ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+                    Kirim Moment
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => inputRef.current?.click()} className="grid min-h-56 w-full place-items-center rounded-[1.5rem] border border-dashed border-[#D7C9A7] bg-[#FFFDF7] text-center transition hover:bg-white">
+                <span className="grid place-items-center gap-3">
+                  <span className="grid h-16 w-16 place-items-center rounded-full bg-[#F4C62B] text-[#1F1F1F]"><Camera size={28} /></span>
+                  <span className="text-lg font-black text-[#1F1F1F]">Ambil Moment</span>
+                  <span className="text-sm font-semibold text-[#6B6254]">Tanpa edit. Tanpa caption. Apa adanya.</span>
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </section>
 
-      <div className="mt-6 flex gap-2 overflow-x-auto rounded-[1.5rem] border border-[#E8DDC4] bg-[#FFF8E8]/70 p-2">
-        {tabs.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button key={item.key} onClick={() => changeTab(item.key)} className={`inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-black transition ${tab === item.key ? "bg-[#F4C62B] text-[#1F1F1F] shadow-sm" : "bg-white text-[#6B6254] hover:bg-[#FFFDF7]"}`}>
-              <Icon size={16} /> {item.label}
-            </button>
-          );
-        })}
-      </div>
+      {message ? <p className="rounded-full border border-[#E8DDC4] bg-[#FFFDF7] px-4 py-3 text-sm font-bold text-[#6B6254]">{message}</p> : null}
 
-      <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_320px]">
-        <div className="space-y-5">
-          {loading ? <div className="rounded-[2rem] border border-[#E8DDC4] bg-white p-8 text-[#6B6254]">Memuat activity...</div> : null}
-          {!loading && filteredPosts.length === 0 ? <SoftEmpty tab={tab} /> : null}
-          {!loading && filteredPosts.length > 0 && isGridTab ? <MediaGrid posts={filteredPosts} onOpen={setSelectedPost} /> : null}
-          {!loading && filteredPosts.length > 0 && !isGridTab ? filteredPosts.map((post) => <PostCard key={post.id} post={post} currentUserId={profile.id} onRefresh={loadPosts} />) : null}
+      <section className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex rounded-full border border-[#E8DDC4] bg-[#FFFDF7] p-1">
+            <button type="button" onClick={() => setTab("explore")} className={`rounded-full px-5 py-2 text-sm font-black transition ${tab === "explore" ? "bg-[#F4C62B] text-[#1F1F1F]" : "text-[#6B6254] hover:bg-[#FFF8E8]"}`}>Explore</button>
+            <button type="button" onClick={() => setTab("mine")} className={`rounded-full px-5 py-2 text-sm font-black transition ${tab === "mine" ? "bg-[#F4C62B] text-[#1F1F1F]" : "text-[#6B6254] hover:bg-[#FFF8E8]"}`}>My Moments</button>
+          </div>
+          <button type="button" onClick={() => inputRef.current?.click()} className="inline-flex items-center gap-2 rounded-full bg-[#1F1F1F] px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5">
+            <Plus size={17} /> Moment Baru
+          </button>
         </div>
-        <aside className="hidden space-y-4 xl:block">
-          <div className="rounded-[2rem] border border-[#E8DDC4] bg-[#FFF8E8] p-5">
-            <p className="font-black text-[#1F1F1F]">Community memory</p>
-            <p className="mt-2 text-sm leading-6 text-[#6B6254]">Bagikan dokumentasi, progress belajar, pelayanan, dan momen syukur dari kegiatan internal Fa Hui Cu.</p>
+
+        {loading ? (
+          <div className="grid place-items-center rounded-[2rem] border border-[#E8DDC4] bg-[#FFFDF7] p-10 text-[#6B6254]"><Loader2 className="animate-spin" /></div>
+        ) : gridMoments.length ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {gridMoments.map((moment) => <MomentTile key={moment.id} moment={moment} onOpen={openMoment} />)}
           </div>
-          <div className="rounded-[2rem] border border-[#E8DDC4] bg-white p-5">
-            <p className="text-sm font-black text-[#1F1F1F]">Ruang internal</p>
-            <p className="mt-2 text-sm leading-6 text-[#6B6254]">Semua anggota aktif dapat melihat post lintas cabang. Admin tetap dapat melakukan moderasi dari Activity Monitor.</p>
-          </div>
-        </aside>
+        ) : (
+          <EmptyState text={tab === "mine" ? "Belum ada Moment dari kamu." : "Belum ada Moment baru."} />
+        )}
       </section>
 
-      <CreatePostModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={loadPosts} />
-      <ProfileEditModal profile={profile} open={profileOpen} onClose={() => setProfileOpen(false)} onUpdated={(next) => setProfile((current) => ({ ...current, ...next }))} />
-      <PostDetailModal post={selectedPost} open={Boolean(selectedPost)} onClose={() => setSelectedPost(null)} onRefresh={loadPosts} currentUserId={profile.id} />
-    </div>
+      {selectedMoment ? (
+        <MomentModal
+          moment={selectedMoment}
+          viewerName={viewerName}
+          onClose={closeMoment}
+          onReact={reactToMoment}
+          onDelete={deleteMoment}
+        />
+      ) : null}
+    </main>
   );
 }

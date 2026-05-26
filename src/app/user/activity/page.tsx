@@ -9,7 +9,7 @@ export default async function ActivityPage() {
     return <AppChrome><div className="rounded-3xl border border-[#e8ddc4] bg-white p-6">Silakan login dahulu.</div></AppChrome>;
   }
   if (currentUser.status !== "ACTIVE") {
-    return <AppChrome><div className="rounded-3xl border border-[#e8ddc4] bg-white p-6">Activity hanya tersedia untuk akun aktif.</div></AppChrome>;
+    return <AppChrome><div className="rounded-3xl border border-[#e8ddc4] bg-white p-6">Moments hanya tersedia untuk akun aktif.</div></AppChrome>;
   }
 
   const [profile, postCount] = await Promise.all([

@@ -11,6 +11,7 @@ export const activityPostTypes = [
 ] as const;
 
 export const activityMediaTypes = ["IMAGE", "VIDEO"] as const;
+export const momentReactionEmojis = ["🙏", "❤️", "😊", "✨", "🌸"] as const;
 
 export const activityTypeLabel: Record<(typeof activityPostTypes)[number], string> = {
   EVENT_PHOTO: "Foto event",
@@ -57,16 +58,31 @@ export const activityPostInputSchema = z.object({
   type: z.enum(activityPostTypes).default("OTHER"),
   media: z.array(activityMediaInputSchema).default([]),
 }).refine((data) => Boolean(data.caption?.trim()) || data.media.length > 0, {
-  message: "Isi caption atau tambahkan media terlebih dahulu.",
+  message: "Pilih foto terlebih dahulu.",
+});
+
+export const momentReactionInputSchema = z.object({
+  emoji: z.enum(momentReactionEmojis),
 });
 
 export function serializeActivityPost(post: any, currentUserId?: string) {
   const legacyMedia = post.legacyImageUrl && (!post.media || post.media.length === 0)
-    ? [{ id: `${post.id}:legacy`, postId: post.id, mediaUrl: post.legacyImageUrl, mediaType: "IMAGE", orderNumber: 0, altText: post.caption || "Activity image", createdAt: post.createdAt }]
+    ? [{ id: `${post.id}:legacy`, postId: post.id, mediaUrl: post.legacyImageUrl, mediaType: "IMAGE", orderNumber: 0, altText: post.caption || "Moment image", createdAt: post.createdAt }]
     : [];
-  const media = [...(post.media || []), ...legacyMedia].sort((a, b) => (a.orderNumber ?? 0) - (b.orderNumber ?? 0));
+  const rawMedia = [...(post.media || []), ...legacyMedia].sort((a, b) => (a.orderNumber ?? 0) - (b.orderNumber ?? 0));
   const visibleComments = (post.comments || []).filter((comment: any) => !comment.deletedAt && !comment.isHiddenByAdmin);
   const likes = post.likes || [];
+  const views = post.views || [];
+  const reactions = post.reactions || [];
+  const isOwnMoment = Boolean(currentUserId && post.userId === currentUserId);
+  const seenByMe = Boolean(currentUserId && !isOwnMoment && views.some((view: any) => view.viewerId === currentUserId));
+  const mediaVisible = isOwnMoment || !seenByMe;
+  const reactionCounts = momentReactionEmojis.map((emoji) => ({
+    emoji,
+    count: reactions.filter((reaction: any) => reaction.emoji === emoji).length,
+  })).filter((item) => item.count > 0);
+  const myReaction = currentUserId ? reactions.find((reaction: any) => reaction.userId === currentUserId)?.emoji || null : null;
+
   return {
     id: post.id,
     userId: post.userId,
@@ -78,7 +94,14 @@ export function serializeActivityPost(post: any, currentUserId?: string) {
     isHiddenByAdmin: post.isHiddenByAdmin,
     deletedAt: post.deletedAt,
     author: post.user,
-    media,
+    media: mediaVisible ? rawMedia : [],
+    mediaVisible,
+    seenByMe,
+    isOwnMoment,
+    viewedAt: views.find((view: any) => view.viewerId === currentUserId)?.viewedAt || null,
+    reactionCounts,
+    reactionTotal: reactions.length,
+    myReaction,
     likeCount: likes.length,
     commentCount: visibleComments.length,
     likedByMe: currentUserId ? likes.some((like: any) => like.userId === currentUserId) : false,

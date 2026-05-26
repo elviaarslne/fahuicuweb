@@ -189,6 +189,8 @@ model User {
   activityPosts            ActivityPost[]
   activityLikes            ActivityLike[]
   activityComments         ActivityComment[]
+  activityPostViews        ActivityPostView[]       @relation("ActivityPostViews")
+  activityReactions        ActivityReaction[]
   rewardTransactions       RewardTransaction[]
   creditLedgerEntries      CreditLedger[]
 
@@ -553,6 +555,8 @@ model ActivityPost {
   media           ActivityMedia[]
   likes           ActivityLike[]
   comments        ActivityComment[]
+  views           ActivityPostView[]
+  reactions       ActivityReaction[]
 
   @@index([userId])
   @@index([type])
@@ -603,6 +607,34 @@ model ActivityComment {
   @@index([userId])
   @@index([isHiddenByAdmin, deletedAt])
   @@map("activity_comments")
+}
+
+model ActivityPostView {
+  id       String       @id @default(cuid())
+  postId   String       @map("post_id")
+  viewerId String       @map("viewer_id")
+  viewedAt DateTime     @default(now()) @map("viewed_at")
+  post     ActivityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  viewer   User         @relation("ActivityPostViews", fields: [viewerId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, viewerId])
+  @@index([viewerId])
+  @@map("activity_post_views")
+}
+
+model ActivityReaction {
+  id        String       @id @default(cuid())
+  postId    String       @map("post_id")
+  userId    String       @map("user_id")
+  emoji     String
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+  post      ActivityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId])
+  @@map("activity_reactions")
 }
 
 model Reward {
