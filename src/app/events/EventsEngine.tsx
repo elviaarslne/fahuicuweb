@@ -262,10 +262,10 @@ export default function EventsEngine() {
     <div className="mt-5 space-y-5">
       <div className="surface flex flex-wrap gap-2 rounded-lg p-2">
         {[
-          { id: "overview", label: "Daftar & lifecycle" },
-          { id: "create", label: "Buat event" },
-          { id: "edit", label: "Edit info" },
-          { id: "participants", label: "Participant role" },
+          { id: "overview", label: "Daftar Event" },
+          { id: "create", label: "Buat Draft" },
+          { id: "edit", label: "Edit Info" },
+          { id: "participants", label: "Role Event" },
         ].map((item) => (
           <button
             key={item.id}
@@ -284,8 +284,8 @@ export default function EventsEngine() {
 
       {activePanel === "create" ? (
       <section className="surface rounded-lg p-5">
-        <h2 className="text-lg font-semibold text-[#1f1f1f]">Buat event</h2>
-        <p className="mt-1 text-sm text-neutral-500">Event selalu dimulai dari Draft, lalu diproses melalui lifecycle.</p>
+        <h2 className="text-lg font-semibold text-[#1f1f1f]">Buat Draft Sidang Dharma</h2>
+        <p className="mt-1 text-sm text-neutral-500">Draft dipakai untuk menyiapkan info dasar, assignment, dan topic sebelum dipublish ke user end.</p>
         <form
           className="mt-5 space-y-5"
           onSubmit={(event) => {
@@ -350,7 +350,8 @@ export default function EventsEngine() {
       {activePanel === "overview" ? (
       <section className="space-y-6">
         <div className="surface rounded-lg p-5">
-          <h2 className="text-lg font-semibold text-[#1f1f1f]">Lifecycle event</h2>
+          <h2 className="text-lg font-semibold text-[#1f1f1f]">Workflow Sidang Dharma</h2>
+          <p className="mt-1 text-sm text-neutral-500">Draft tidak tampil di user end. Setelah publish, registration, attendance, feedback, dan archive mengikuti lifecycle event.</p>
           <div className="mt-4 overflow-x-auto">
             <div className="flex min-w-max items-center gap-2">
               {eventStatusOptions.map((item, index) => (

@@ -29,6 +29,7 @@ export const appNavItems = [
   { href: "/approvals", labelKey: "approval", icon: ClipboardCheck, action: "manageEventParticipants", workspaces: ["ADMIN"] },
   { href: "/attendance", labelKey: "attendance", icon: QrCode, action: "manageAttendance", workspaces: ["ADMIN"] },
   { href: "/feedback", labelKey: "feedback", icon: BarChart3, action: "viewEvents", workspaces: ["SPEAKER", "TRAINER", "ADMIN"] },
+  { href: "/materials", labelKey: "materials", icon: FileText, action: "viewEvents", workspaces: ["SPEAKER", "TRAINER", "ADMIN"] },
   { href: "/admin/wejangan", labelKey: "adminWejangan", icon: Sparkles, action: "editEvent", workspaces: ["ADMIN"] },
   { href: "/admin/rewards", labelKey: "adminRewards", icon: Store, action: "editEvent", workspaces: ["ADMIN"] },
   { href: "/admin/activity", labelKey: "activityMonitor", icon: MessageSquareText, action: "editEvent", workspaces: ["ADMIN"] },

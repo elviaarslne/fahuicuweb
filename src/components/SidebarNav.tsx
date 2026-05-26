@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, BookOpen, CalendarDays, FileText, Gift, Home, Menu, MessageSquareText, QrCode, Settings, Sparkles, Store, Users, X } from "lucide-react";
+import { BarChart3, BookOpen, CalendarDays, ClipboardCheck, FileText, Gift, Home, Menu, MessageSquareText, QrCode, Settings, Sparkles, Store, Users, X } from "lucide-react";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 
@@ -12,6 +12,10 @@ const iconMap = {
   members: Users,
   classes: BookOpen,
   events: CalendarDays,
+  sidangDharma: CalendarDays,
+  trainingAdmin: Gift,
+  classBanWuCu: BookOpen,
+  approval: ClipboardCheck,
   attendance: QrCode,
   feedback: BarChart3,
   materials: FileText,
@@ -26,6 +30,7 @@ const iconMap = {
   adminModules: BookOpen,
   adminRewards: Store,
   adminActivity: MessageSquareText,
+  activityMonitor: MessageSquareText,
 } as const;
 
 export default function SidebarNav({
@@ -104,7 +109,8 @@ export default function SidebarNav({
       <nav className="space-y-1.5">
         {navItems.map((item) => {
           const Icon = iconMap[item.labelKey as keyof typeof iconMap] || Home;
-          const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+          const itemPath = item.href.split("?")[0];
+          const active = pathname === itemPath || (itemPath !== "/dashboard" && pathname.startsWith(itemPath));
           return (
             <Link
               key={item.href}
@@ -122,7 +128,7 @@ export default function SidebarNav({
       {canUseAdminSurface && !collapsed ? (
         <div className="mt-5 rounded-lg bg-[#f8f1de] p-3 text-xs leading-5 text-[#6b6254]">
           <p className="font-semibold text-[#1f1f1f]">Admin end</p>
-          <p className="mt-1">Database, approval, event, absensi, feedback.</p>
+          <p className="mt-1">Menu mengikuti role, cabang, dan assignment operasional.</p>
         </div>
       ) : null}
     </aside>
