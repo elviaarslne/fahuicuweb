@@ -33,12 +33,15 @@ function postInclude() {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await getCurrentUser();
     if (!requireActiveActivityUser(user)) {
       return NextResponse.json({ error: "Akun aktif diperlukan." }, { status: 401 });
     }
+
+    const { searchParams } = new URL(request.url);
+    const mode = searchParams.get("mode");
 
     const posts = await prisma.activityPost.findMany({
       where: {
@@ -48,7 +51,7 @@ export async function GET() {
         user: { status: "ACTIVE" },
       },
       include: postInclude(),
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: mode === "queue" ? "asc" : "desc" },
       take: 80,
     });
 

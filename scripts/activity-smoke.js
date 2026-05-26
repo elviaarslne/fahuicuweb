@@ -1,4 +1,6 @@
 require("dotenv/config");
+const fs = require("fs");
+const path = require("path");
 const bcrypt = require("bcryptjs");
 const { PrismaClient } = require("@prisma/client");
 const { PrismaMariaDb } = require("@prisma/adapter-mariadb");
@@ -14,6 +16,10 @@ function assert(condition, label, detail = "") {
 
 function cookieFrom(response) {
   return (response.headers.get("set-cookie") || "").split(";")[0];
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function jsonFetch(path, options = {}) {
@@ -132,6 +138,22 @@ async function main() {
   });
   assert(momentCreated.response.ok && momentCreated.data.post.media.length === 1, "active user can upload Moment without caption", JSON.stringify(momentCreated.data));
   const momentId = momentCreated.data.post.id;
+  await sleep(20);
+  const momentCreatedTwo = await jsonFetch("/api/activity/posts", {
+    method: "POST",
+    headers: { Cookie: oneCookie },
+    body: JSON.stringify({
+      caption: null,
+      type: "OTHER",
+      media: [{ mediaUrl: "https://example.com/moment-two.jpg", mediaType: "IMAGE", orderNumber: 0 }],
+    }),
+  });
+  assert(momentCreatedTwo.response.ok, "active user can upload a second Moment for queue ordering", JSON.stringify(momentCreatedTwo.data));
+  const momentTwoId = momentCreatedTwo.data.post.id;
+
+  const queueFeed = await jsonFetch("/api/activity/posts?mode=queue", { headers: { Cookie: twoCookie } });
+  const queueIds = queueFeed.data.posts.map((post) => post.id);
+  assert(queueFeed.response.ok && queueIds.indexOf(momentId) > -1 && queueIds.indexOf(momentTwoId) > -1 && queueIds.indexOf(momentId) < queueIds.indexOf(momentTwoId), "unseen Moment queue is oldest first");
 
   const unseenMomentFeed = await jsonFetch("/api/activity/posts", { headers: { Cookie: twoCookie } });
   const unseenMoment = unseenMomentFeed.data.posts.find((post) => post.id === momentId);
@@ -161,6 +183,25 @@ async function main() {
     body: JSON.stringify({ emoji: "✨" }),
   });
   assert(reactionTwo.response.ok && reactionTwo.data.myReaction === "✨", "user can update Moment emoji reaction", JSON.stringify(reactionTwo.data));
+
+  const privateMessage = await jsonFetch(`/api/activity/posts/${momentId}/comments`, {
+    method: "POST",
+    headers: { Cookie: twoCookie },
+    body: JSON.stringify({ content: "Pesan pribadi untuk uploader." }),
+  });
+  assert(privateMessage.response.ok, "viewer can send private Moment message", JSON.stringify(privateMessage.data));
+
+  const viewerAfterMessage = await jsonFetch("/api/activity/posts", { headers: { Cookie: twoCookie } });
+  const viewerMoment = viewerAfterMessage.data.posts.find((post) => post.id === momentId);
+  assert(viewerAfterMessage.response.ok && viewerMoment && (!viewerMoment.privateMessages || viewerMoment.privateMessages.length === 0) && viewerMoment.commentCount === 0, "private Moment message is not visible to other viewers");
+
+  const ownerAfterMessage = await jsonFetch("/api/activity/posts", { headers: { Cookie: oneCookie } });
+  const ownerMomentWithMessage = ownerAfterMessage.data.posts.find((post) => post.id === momentId);
+  assert(ownerAfterMessage.response.ok && ownerMomentWithMessage && ownerMomentWithMessage.privateMessages.some((message) => message.content.includes("Pesan pribadi")), "owner can see private Moment messages in My Moments");
+
+  const activityUi = fs.readFileSync(path.join(__dirname, "..", "src", "app", "user", "activity", "ActivityFeedClient.tsx"), "utf8");
+  assert(!activityUi.includes("Explore"), "Moments UI does not expose Explore grid label");
+  assert(!activityUi.includes("Previous"), "Moments UI does not expose previous navigation");
 
   const like1 = await jsonFetch(`/api/activity/posts/${postId}/like`, { method: "POST", headers: { Cookie: twoCookie } });
   const like2 = await jsonFetch(`/api/activity/posts/${postId}/like`, { method: "POST", headers: { Cookie: twoCookie } });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Loader2, Lock, Plus, Send, Sparkles, Trash2, X } from "lucide-react";
+import { Camera, ChevronRight, Inbox, Loader2, Lock, Send, Sparkles, Trash2, X } from "lucide-react";
 
 type Profile = {
   id: string;
@@ -27,6 +27,19 @@ type Media = {
 
 type ReactionCount = { emoji: string; count: number };
 
+type PrivateMessage = {
+  id: string;
+  content: string;
+  createdAt: string;
+  author?: {
+    id: string;
+    fullName: string;
+    chineseName?: string | null;
+    username?: string | null;
+    profilePhotoUrl?: string | null;
+  } | null;
+};
+
 type Moment = {
   id: string;
   userId: string;
@@ -49,6 +62,8 @@ type Moment = {
   reactionCounts?: ReactionCount[];
   reactionTotal?: number;
   myReaction?: string | null;
+  privateMessages?: PrivateMessage[];
+  privateMessageCount?: number;
 };
 
 const REACTIONS = ["🙏", "❤️", "😊", "✨", "🌸"];
@@ -84,175 +99,252 @@ function Avatar({ user, size = "md" }: { user?: Moment["author"] | null; size?: 
 
 function ReactionSummary({ counts }: { counts?: ReactionCount[] }) {
   if (!counts?.length) return <span className="text-xs font-semibold text-[#6B6254]">Belum ada reaksi</span>;
+  return <span className="text-xs font-bold text-[#1F1F1F]">{counts.map((item) => `${item.emoji} ${item.count}`).join("  ")}</span>;
+}
+
+function EmptyState({ text, cta, onCta }: { text: string; cta?: string; onCta?: () => void }) {
   return (
-    <span className="text-xs font-bold text-[#1F1F1F]">
-      {counts.map((item) => `${item.emoji} ${item.count}`).join("  ")}
-    </span>
+    <div className="rounded-[2rem] border border-dashed border-[#E8DDC4] bg-[#FFFDF7] p-10 text-center text-[#6B6254]">
+      <Sparkles className="mx-auto mb-3 text-[#F4C62B]" size={28} />
+      <p className="font-semibold">{text}</p>
+      {cta && onCta ? (
+        <button type="button" onClick={onCta} className="mt-5 rounded-full bg-[#F4C62B] px-5 py-2.5 text-sm font-black text-[#1F1F1F] transition hover:bg-[#E8B923]">
+          {cta}
+        </button>
+      ) : null}
+    </div>
   );
 }
 
-function MomentTile({ moment, onOpen }: { moment: Moment; onOpen: (moment: Moment) => void }) {
+function MyMomentTile({ moment, onOpen }: { moment: Moment; onOpen: (moment: Moment) => void }) {
   const cover = moment.media[0];
-  const locked = Boolean(moment.seenByMe && !moment.isOwnMoment);
-  const name = displayName(moment.author);
-
   return (
     <button
       type="button"
-      onClick={() => !locked && onOpen(moment)}
-      disabled={locked}
-      className="group relative aspect-square overflow-hidden rounded-[2rem] border border-[#E8DDC4] bg-[#FFF8E8] text-left shadow-sm shadow-amber-900/5 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-amber-900/10 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
+      onClick={() => onOpen(moment)}
+      className="group relative aspect-square overflow-hidden rounded-[1.75rem] border border-[#E8DDC4] bg-[#FFF8E8] text-left shadow-sm shadow-amber-900/5 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-amber-900/10"
     >
-      {cover?.mediaUrl && !locked ? (
+      {cover?.mediaUrl ? (
         <img
           src={cover.mediaUrl}
-          alt="Moment"
+          alt="Moment saya"
           draggable={false}
           onContextMenu={(event) => event.preventDefault()}
           className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
         />
       ) : (
-        <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#FFF8E8] via-[#F8F1DE] to-[#E8DDC4]">
-          <div className="grid place-items-center gap-3 text-center text-[#6B6254]">
-            <Lock size={26} />
-            <span className="text-sm font-black">Sudah dilihat</span>
-          </div>
+        <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#FFF8E8] via-[#F8F1DE] to-[#E8DDC4] text-[#6B6254]">
+          <Lock size={24} />
         </div>
       )}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-white">
-        <div className="flex items-end justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-black">{name}</p>
-            <p className="text-xs text-white/75">{formatMomentTime(moment.createdAt)}</p>
-          </div>
-          <span className="rounded-full bg-white/20 px-2.5 py-1 text-xs font-black backdrop-blur">{moment.reactionTotal || 0} reaksi</span>
-        </div>
+        <p className="text-xs font-bold text-white/75">{formatMomentTime(moment.createdAt)}</p>
+        <p className="mt-1 text-sm font-black">{moment.reactionTotal || 0} reaksi · {moment.privateMessageCount || 0} pesan</p>
       </div>
     </button>
   );
 }
 
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="rounded-[2rem] border border-dashed border-[#E8DDC4] bg-[#FFFDF7] p-10 text-center text-[#6B6254]">
-      <Sparkles className="mx-auto mb-3 text-[#F4C62B]" size={28} />
-      <p className="font-semibold">{text}</p>
-    </div>
-  );
-}
-
-function MomentModal({
-  moment,
+function StoryModal({
+  queue,
+  initialIndex = 0,
   viewerName,
+  ownerMode = false,
   onClose,
   onReact,
   onDelete,
+  onViewed,
+  onSendMessage,
 }: {
-  moment: Moment;
+  queue: Moment[];
+  initialIndex?: number;
   viewerName: string;
+  ownerMode?: boolean;
   onClose: () => void;
-  onReact: (emoji: string) => Promise<void>;
+  onReact: (momentId: string, emoji: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onViewed: (momentId: string) => Promise<void>;
+  onSendMessage: (momentId: string, content: string) => Promise<void>;
 }) {
-  const cover = moment.media[0];
+  const [index, setIndex] = useState(initialIndex);
+  const [done, setDone] = useState(queue.length === 0);
   const [reacting, setReacting] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [messageText, setMessageText] = useState("");
+  const [messageState, setMessageState] = useState("");
+  const viewedRef = useRef(new Set<string>());
+  const current = queue[index];
+  const cover = current?.media[0];
+
+  useEffect(() => {
+    setIndex(initialIndex);
+    setDone(queue.length === 0);
+    viewedRef.current = new Set<string>();
+  }, [initialIndex, queue]);
+
+  useEffect(() => {
+    if (!current || ownerMode || viewedRef.current.has(current.id)) return;
+    viewedRef.current.add(current.id);
+    void onViewed(current.id);
+  }, [current, ownerMode, onViewed]);
 
   async function sendReaction(emoji: string) {
+    if (!current) return;
     setReacting(emoji);
-    await onReact(emoji);
+    await onReact(current.id, emoji);
     setReacting(null);
   }
 
+  async function sendPrivateMessage() {
+    if (!current || !messageText.trim()) return;
+    const content = messageText.trim();
+    setMessageState("Mengirim...");
+    await onSendMessage(current.id, content);
+    setMessageText("");
+    setMessageState("Pesan terkirim.");
+    window.setTimeout(() => setMessageState(""), 1800);
+  }
+
   async function deleteMoment() {
-    if (!confirm("Hapus Moment ini?")) return;
+    if (!current || !confirm("Hapus Moment ini?")) return;
     setDeleting(true);
-    await onDelete(moment.id);
+    await onDelete(current.id);
     setDeleting(false);
   }
 
+  function goNext() {
+    if (index + 1 >= queue.length) {
+      setDone(true);
+      return;
+    }
+    setMessageText("");
+    setMessageState("");
+    setIndex((value) => value + 1);
+  }
+
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1F1F1F]/70 p-3 backdrop-blur-sm">
-      <button type="button" aria-label="Tutup" className="absolute inset-0" onClick={onClose} />
-      <article className="relative grid max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[2rem] border border-[#E8DDC4] bg-[#FFFDF7] shadow-2xl md:grid-cols-[minmax(0,1.1fr)_360px]">
-        <div className="relative min-h-[420px] bg-[#1F1F1F]" onContextMenu={(event) => event.preventDefault()}>
-          {cover?.mediaUrl ? (
-            <img src={cover.mediaUrl} alt="Moment" draggable={false} className="h-full max-h-[92vh] w-full object-contain select-none" />
-          ) : (
-            <div className="grid h-full min-h-[420px] place-items-center text-white">Moment tidak tersedia.</div>
-          )}
-          <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent p-4 text-xs font-bold text-white/80">
-            Mohon tidak screenshot. Moment ini hanya untuk dilihat sekali.
+    <div className="fixed inset-0 z-50 bg-[#1F1F1F]/85 p-3 backdrop-blur-sm md:p-6">
+      <article className="relative mx-auto flex h-full max-w-5xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[#111] text-white shadow-2xl">
+        <div className="absolute inset-x-0 top-0 z-20 space-y-3 bg-gradient-to-b from-black/70 to-transparent p-4">
+          <div className="flex gap-1.5">
+            {queue.map((item, itemIndex) => (
+              <span key={item.id} className={`h-1 flex-1 rounded-full ${done || itemIndex < index ? "bg-white" : itemIndex === index ? "bg-[#F4C62B]" : "bg-white/25"}`} />
+            ))}
           </div>
-          <div className="pointer-events-none absolute bottom-4 right-4 rounded-full bg-black/35 px-3 py-1 text-xs font-bold text-white/75 backdrop-blur">
-            Dilihat oleh {viewerName}
-          </div>
-        </div>
-        <div className="flex min-h-0 flex-col bg-[#FFFDF7]">
-          <header className="flex items-center justify-between gap-3 border-b border-[#E8DDC4] p-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <Avatar user={moment.author} />
-              <div className="min-w-0">
-                <p className="truncate font-black text-[#1F1F1F]">{displayName(moment.author)}</p>
-                <p className="text-xs font-semibold text-[#6B6254]">{moment.author.username ? `@${moment.author.username}` : formatMomentTime(moment.createdAt)}</p>
+          <div className="flex items-center justify-between gap-3">
+            {current ? (
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar user={current.author} size="sm" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black">{displayName(current.author)}</p>
+                  <p className="text-xs text-white/70">{formatMomentTime(current.createdAt)}</p>
+                </div>
               </div>
-            </div>
-            <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full border border-[#E8DDC4] bg-white text-[#1F1F1F]">
+            ) : <span />}
+            <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-white/15 text-white backdrop-blur transition hover:bg-white/25">
               <X size={18} />
             </button>
-          </header>
-          <div className="flex-1 space-y-5 overflow-y-auto p-4">
-            <div className="rounded-3xl border border-[#E8DDC4] bg-[#FFF8E8] p-4">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A17700]">Reaksi</p>
-              <div className="mt-3 flex flex-wrap gap-2">
+          </div>
+        </div>
+
+        {done ? (
+          <div className="grid flex-1 place-items-center bg-[#FFFDF7] p-8 text-center text-[#1F1F1F]">
+            <div>
+              <Sparkles className="mx-auto mb-4 text-[#F4C62B]" size={36} />
+              <h2 className="text-2xl font-black">Semua Moments sudah kamu lihat.</h2>
+              <button type="button" onClick={onClose} className="mt-6 rounded-full bg-[#F4C62B] px-6 py-3 text-sm font-black text-[#1F1F1F] transition hover:bg-[#E8B923]">Tutup</button>
+            </div>
+          </div>
+        ) : current ? (
+          <>
+            <button type="button" aria-label="Moment berikutnya" onClick={goNext} className="absolute inset-y-0 right-0 z-10 w-1/2" />
+            <div className="relative grid flex-1 place-items-center bg-black" onContextMenu={(event) => event.preventDefault()}>
+              {cover?.mediaUrl ? (
+                <img src={cover.mediaUrl} alt="Moment" draggable={false} className="max-h-full max-w-full select-none object-contain" />
+              ) : (
+                <div className="grid h-full w-full place-items-center text-white/80">Moment tidak tersedia.</div>
+              )}
+              <div className="pointer-events-none absolute inset-x-0 bottom-28 mx-auto max-w-fit rounded-full bg-black/35 px-4 py-1.5 text-xs font-bold text-white/80 backdrop-blur">
+                Dilihat oleh {viewerName}
+              </div>
+            </div>
+
+            <div className="z-20 space-y-3 border-t border-white/10 bg-black/75 p-4 backdrop-blur">
+              <p className="text-center text-xs font-semibold text-white/70">Mohon tidak screenshot. Moment ini hanya untuk dilihat sekali.</p>
+              <div className="flex items-center justify-center gap-2">
                 {REACTIONS.map((emoji) => (
                   <button
                     key={emoji}
                     type="button"
                     onClick={() => sendReaction(emoji)}
                     disabled={Boolean(reacting)}
-                    className={`rounded-full border px-4 py-2 text-2xl transition hover:-translate-y-0.5 ${moment.myReaction === emoji ? "border-[#F4C62B] bg-[#F4C62B]" : "border-[#E8DDC4] bg-white"}`}
+                    className={`grid h-12 w-12 place-items-center rounded-full border text-2xl transition hover:-translate-y-0.5 ${current.myReaction === emoji ? "border-[#F4C62B] bg-[#F4C62B]" : "border-white/15 bg-white/10"}`}
                   >
-                    {reacting === emoji ? <Loader2 className="animate-spin" size={20} /> : emoji}
+                    {reacting === emoji ? <Loader2 className="animate-spin" size={18} /> : emoji}
                   </button>
                 ))}
               </div>
-              <div className="mt-4"><ReactionSummary counts={moment.reactionCounts} /></div>
+              <div className="flex items-center gap-2">
+                {ownerMode ? (
+                  <div className="flex-1 rounded-2xl bg-white/10 px-4 py-3 text-sm text-white/80"><ReactionSummary counts={current.reactionCounts} /></div>
+                ) : (
+                  <>
+                    <input
+                      value={messageText}
+                      onChange={(event) => setMessageText(event.target.value)}
+                      placeholder="Tulis pesan singkat"
+                      className="min-w-0 flex-1 rounded-full border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-[#1F1F1F] outline-none placeholder:text-[#6B6254]/70"
+                      onClick={(event) => event.stopPropagation()}
+                    />
+                    <button type="button" onClick={sendPrivateMessage} className="rounded-full bg-[#F4C62B] px-4 py-3 text-sm font-black text-[#1F1F1F] transition hover:bg-[#E8B923]">Kirim pesan</button>
+                  </>
+                )}
+                <button type="button" onClick={goNext} className="grid h-12 w-12 place-items-center rounded-full bg-white text-[#1F1F1F] transition hover:bg-[#F4C62B]" aria-label="Moment berikutnya">
+                  <ChevronRight size={22} />
+                </button>
+              </div>
+              {messageState ? <p className="text-center text-xs font-bold text-[#F4C62B]">{messageState}</p> : null}
+              {ownerMode ? (
+                <div className="rounded-2xl bg-white/10 p-3">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-white/65"><Inbox size={14} /> Pesan diterima</div>
+                  {current.privateMessages?.length ? (
+                    <div className="space-y-2">
+                      {current.privateMessages.map((message) => (
+                        <div key={message.id} className="rounded-xl bg-white/10 px-3 py-2 text-sm">
+                          <p className="font-black">{displayName(message.author as any)}</p>
+                          <p className="text-white/80">{message.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <p className="text-sm text-white/65">Belum ada pesan.</p>}
+                  <button type="button" onClick={deleteMoment} disabled={deleting} className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-300/40 px-4 py-2 text-sm font-black text-red-100 transition hover:bg-red-500/15 disabled:opacity-60">
+                    {deleting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />} Hapus Moment
+                  </button>
+                </div>
+              ) : null}
             </div>
-            {moment.isOwnMoment ? (
-              <button
-                type="button"
-                onClick={deleteMoment}
-                disabled={deleting}
-                className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-black text-red-600 transition hover:bg-red-50 disabled:opacity-60"
-              >
-                {deleting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
-                Hapus Moment
-              </button>
-            ) : null}
-          </div>
-        </div>
+          </>
+        ) : null}
       </article>
     </div>
   );
 }
 
 export default function ActivityFeedClient({ profile }: { profile: Profile }) {
-  const [tab, setTab] = useState<"explore" | "mine">("explore");
   const [moments, setMoments] = useState<Moment[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [selectedMoment, setSelectedMoment] = useState<Moment | null>(null);
+  const [storyQueue, setStoryQueue] = useState<Moment[] | null>(null);
+  const [storyIndex, setStoryIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
-
   const viewerName = profile.username ? `@${profile.username}` : profile.fullName;
 
   async function loadMoments() {
     setLoading(true);
-    const response = await fetch("/api/activity/posts", { cache: "no-store" });
+    const response = await fetch("/api/activity/posts?mode=queue", { cache: "no-store" });
     const data = await response.json().catch(() => null);
     setLoading(false);
     if (!response.ok) {
@@ -262,9 +354,7 @@ export default function ActivityFeedClient({ profile }: { profile: Profile }) {
     setMoments(data.posts || []);
   }
 
-  useEffect(() => {
-    loadMoments();
-  }, []);
+  useEffect(() => { void loadMoments(); }, []);
 
   useEffect(() => {
     if (!selectedFile) {
@@ -276,9 +366,17 @@ export default function ActivityFeedClient({ profile }: { profile: Profile }) {
     return () => URL.revokeObjectURL(url);
   }, [selectedFile]);
 
-  const visibleMoments = useMemo(() => moments.filter((moment) => moment.media.length > 0 || moment.seenByMe), [moments]);
-  const myMoments = useMemo(() => moments.filter((moment) => moment.userId === profile.id), [moments, profile.id]);
-  const gridMoments = tab === "mine" ? myMoments : visibleMoments.filter((moment) => moment.userId !== profile.id);
+  const unseenQueue = useMemo(() => {
+    return moments
+      .filter((moment) => moment.userId !== profile.id && !moment.seenByMe && moment.media.length > 0)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [moments, profile.id]);
+
+  const myMoments = useMemo(() => {
+    return moments
+      .filter((moment) => moment.userId === profile.id)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [moments, profile.id]);
 
   function chooseFile(file?: File | null) {
     setMessage("");
@@ -319,7 +417,6 @@ export default function ActivityFeedClient({ profile }: { profile: Profile }) {
       setSelectedFile(null);
       if (inputRef.current) inputRef.current.value = "";
       setMessage("Moment terkirim.");
-      setTab("mine");
       await loadMoments();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Moment gagal dikirim.");
@@ -328,22 +425,29 @@ export default function ActivityFeedClient({ profile }: { profile: Profile }) {
     }
   }
 
-  async function openMoment(moment: Moment) {
-    if (moment.seenByMe && !moment.isOwnMoment) return;
-    setSelectedMoment(moment);
-    if (!moment.isOwnMoment) {
-      await fetch(`/api/activity/posts/${moment.id}/view`, { method: "POST" }).catch(() => null);
-    }
+  function openQueue() {
+    if (!unseenQueue.length) return;
+    setStoryQueue(unseenQueue);
+    setStoryIndex(0);
   }
 
-  async function closeMoment() {
-    setSelectedMoment(null);
+  function openOwnMoment(moment: Moment) {
+    setStoryQueue([moment]);
+    setStoryIndex(0);
+  }
+
+  async function closeStory() {
+    setStoryQueue(null);
     await loadMoments();
   }
 
-  async function reactToMoment(emoji: string) {
-    if (!selectedMoment) return;
-    const response = await fetch(`/api/activity/posts/${selectedMoment.id}/reaction`, {
+  async function markViewed(momentId: string) {
+    await fetch(`/api/activity/posts/${momentId}/view`, { method: "POST" }).catch(() => null);
+    setMoments((current) => current.map((moment) => moment.id === momentId ? { ...moment, seenByMe: true } : moment));
+  }
+
+  async function reactToMoment(momentId: string, emoji: string) {
+    const response = await fetch(`/api/activity/posts/${momentId}/reaction`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ emoji }),
@@ -353,7 +457,19 @@ export default function ActivityFeedClient({ profile }: { profile: Profile }) {
       setMessage(data?.error || "Reaksi gagal dikirim.");
       return;
     }
-    setSelectedMoment((current) => current ? { ...current, ...data } : current);
+    const patch = (moment: Moment) => moment.id === momentId ? { ...moment, ...data } : moment;
+    setMoments((current) => current.map(patch));
+    setStoryQueue((current) => current ? current.map(patch) : current);
+  }
+
+  async function sendPrivateMessage(momentId: string, content: string) {
+    const response = await fetch(`/api/activity/posts/${momentId}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) setMessage(data?.error || "Pesan gagal dikirim.");
   }
 
   async function deleteMoment(id: string) {
@@ -363,7 +479,7 @@ export default function ActivityFeedClient({ profile }: { profile: Profile }) {
       setMessage(data?.error || "Moment gagal dihapus.");
       return;
     }
-    setSelectedMoment(null);
+    setStoryQueue(null);
     setMessage("Moment dihapus.");
     await loadMoments();
   }
@@ -371,12 +487,12 @@ export default function ActivityFeedClient({ profile }: { profile: Profile }) {
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
       <section className="overflow-hidden rounded-[2rem] border border-[#E8DDC4] bg-[#FFFDF7] shadow-sm shadow-amber-900/5">
-        <div className="grid gap-6 p-5 md:grid-cols-[1fr_360px] md:p-7">
+        <div className="grid gap-6 p-5 md:grid-cols-[1fr_340px] md:p-7">
           <div className="flex items-center gap-4">
             <Avatar user={{ id: profile.id, fullName: profile.fullName, chineseName: profile.chineseName, username: profile.username, profilePhotoUrl: profile.profilePhotoUrl }} size="lg" />
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-[#A17700]">Moments</p>
-              <h1 className="mt-1 text-3xl font-black text-[#1F1F1F]">Bagikan momen apa adanya.</h1>
+              <h1 className="mt-1 text-3xl font-black text-[#1F1F1F]">Lihat sekali, apa adanya.</h1>
               <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-[#6B6254]">
                 {profile.username ? <span className="rounded-full bg-[#FFF8E8] px-3 py-1">@{profile.username}</span> : null}
                 {profile.homeBranch ? <span className="rounded-full bg-[#FFF8E8] px-3 py-1">{profile.homeBranch}</span> : null}
@@ -387,31 +503,23 @@ export default function ActivityFeedClient({ profile }: { profile: Profile }) {
           </div>
 
           <div className="rounded-[1.75rem] border border-[#E8DDC4] bg-[#FFF8E8] p-4">
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(event) => chooseFile(event.target.files?.[0])}
-            />
+            <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => chooseFile(event.target.files?.[0])} />
             {previewUrl ? (
               <div className="space-y-3">
                 <img src={previewUrl} alt="Preview Moment" className="aspect-square w-full rounded-[1.5rem] object-cover" />
                 <div className="grid grid-cols-2 gap-2">
                   <button type="button" onClick={() => inputRef.current?.click()} className="rounded-full border border-[#E8DDC4] bg-white px-4 py-3 text-sm font-black text-[#1F1F1F]">Ganti Foto</button>
                   <button type="button" onClick={uploadMoment} disabled={uploading} className="inline-flex items-center justify-center gap-2 rounded-full bg-[#F4C62B] px-4 py-3 text-sm font-black text-[#1F1F1F] transition hover:bg-[#E8B923] disabled:opacity-60">
-                    {uploading ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
-                    Kirim Moment
+                    {uploading ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />} Kirim Moment
                   </button>
                 </div>
               </div>
             ) : (
-              <button type="button" onClick={() => inputRef.current?.click()} className="grid min-h-56 w-full place-items-center rounded-[1.5rem] border border-dashed border-[#D7C9A7] bg-[#FFFDF7] text-center transition hover:bg-white">
+              <button type="button" onClick={() => inputRef.current?.click()} className="grid min-h-48 w-full place-items-center rounded-[1.5rem] border border-dashed border-[#D7C9A7] bg-[#FFFDF7] text-center transition hover:bg-white">
                 <span className="grid place-items-center gap-3">
                   <span className="grid h-16 w-16 place-items-center rounded-full bg-[#F4C62B] text-[#1F1F1F]"><Camera size={28} /></span>
                   <span className="text-lg font-black text-[#1F1F1F]">Ambil Moment</span>
-                  <span className="text-sm font-semibold text-[#6B6254]">Tanpa edit. Tanpa caption. Apa adanya.</span>
+                  <span className="text-sm font-semibold text-[#6B6254]">Tanpa edit. Tanpa caption.</span>
                 </span>
               </button>
             )}
@@ -421,35 +529,56 @@ export default function ActivityFeedClient({ profile }: { profile: Profile }) {
 
       {message ? <p className="rounded-full border border-[#E8DDC4] bg-[#FFFDF7] px-4 py-3 text-sm font-bold text-[#6B6254]">{message}</p> : null}
 
-      <section className="space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex rounded-full border border-[#E8DDC4] bg-[#FFFDF7] p-1">
-            <button type="button" onClick={() => setTab("explore")} className={`rounded-full px-5 py-2 text-sm font-black transition ${tab === "explore" ? "bg-[#F4C62B] text-[#1F1F1F]" : "text-[#6B6254] hover:bg-[#FFF8E8]"}`}>Explore</button>
-            <button type="button" onClick={() => setTab("mine")} className={`rounded-full px-5 py-2 text-sm font-black transition ${tab === "mine" ? "bg-[#F4C62B] text-[#1F1F1F]" : "text-[#6B6254] hover:bg-[#FFF8E8]"}`}>My Moments</button>
+      <section className="rounded-[2rem] border border-[#E8DDC4] bg-[#FFFDF7] p-5 shadow-sm shadow-amber-900/5 md:p-7">
+        {loading ? (
+          <div className="grid min-h-36 place-items-center text-[#6B6254]"><Loader2 className="animate-spin" /></div>
+        ) : unseenQueue.length ? (
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A17700]">View Queue</p>
+              <h2 className="mt-2 text-2xl font-black text-[#1F1F1F]">{unseenQueue.length} Moments belum dilihat</h2>
+              <p className="mt-1 text-sm font-semibold text-[#6B6254]">Dimulai dari Moment paling lama yang belum kamu lihat.</p>
+            </div>
+            <button type="button" onClick={openQueue} className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1F1F1F] px-6 py-3 text-sm font-black text-white transition hover:-translate-y-0.5">
+              Lihat Moments <ChevronRight size={18} />
+            </button>
           </div>
-          <button type="button" onClick={() => inputRef.current?.click()} className="inline-flex items-center gap-2 rounded-full bg-[#1F1F1F] px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5">
-            <Plus size={17} /> Moment Baru
-          </button>
+        ) : (
+          <EmptyState text="Semua Moments sudah kamu lihat." cta="Bagikan Moment baru" onCta={() => inputRef.current?.click()} />
+        )}
+      </section>
+
+      <section className="space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A17700]">Owner History</p>
+            <h2 className="mt-1 text-2xl font-black text-[#1F1F1F]">My Moments</h2>
+          </div>
+          <button type="button" onClick={() => inputRef.current?.click()} className="inline-flex items-center gap-2 rounded-full border border-[#E8DDC4] bg-[#FFFDF7] px-5 py-3 text-sm font-black text-[#1F1F1F] transition hover:bg-[#FFF8E8]"><Camera size={17} /> Ambil Moment</button>
         </div>
 
         {loading ? (
           <div className="grid place-items-center rounded-[2rem] border border-[#E8DDC4] bg-[#FFFDF7] p-10 text-[#6B6254]"><Loader2 className="animate-spin" /></div>
-        ) : gridMoments.length ? (
+        ) : myMoments.length ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {gridMoments.map((moment) => <MomentTile key={moment.id} moment={moment} onOpen={openMoment} />)}
+            {myMoments.map((moment) => <MyMomentTile key={moment.id} moment={moment} onOpen={openOwnMoment} />)}
           </div>
         ) : (
-          <EmptyState text={tab === "mine" ? "Belum ada Moment dari kamu." : "Belum ada Moment baru."} />
+          <EmptyState text="Belum ada Moment dari kamu." cta="Ambil Moment" onCta={() => inputRef.current?.click()} />
         )}
       </section>
 
-      {selectedMoment ? (
-        <MomentModal
-          moment={selectedMoment}
+      {storyQueue ? (
+        <StoryModal
+          queue={storyQueue}
+          initialIndex={storyIndex}
+          ownerMode={storyQueue.every((moment) => moment.userId === profile.id)}
           viewerName={viewerName}
-          onClose={closeMoment}
+          onClose={closeStory}
           onReact={reactToMoment}
           onDelete={deleteMoment}
+          onViewed={markViewed}
+          onSendMessage={sendPrivateMessage}
         />
       ) : null}
     </main>

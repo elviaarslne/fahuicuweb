@@ -103,14 +103,21 @@ export function serializeActivityPost(post: any, currentUserId?: string) {
     reactionTotal: reactions.length,
     myReaction,
     likeCount: likes.length,
-    commentCount: visibleComments.length,
+    commentCount: isOwnMoment ? visibleComments.length : 0,
+    privateMessageCount: isOwnMoment ? visibleComments.length : 0,
     likedByMe: currentUserId ? likes.some((like: any) => like.userId === currentUserId) : false,
-    commentsPreview: visibleComments.slice(0, 3).map((comment: any) => ({
+    commentsPreview: isOwnMoment ? visibleComments.slice(0, 3).map((comment: any) => ({
       id: comment.id,
       content: comment.content,
       createdAt: comment.createdAt,
       isHiddenByAdmin: comment.isHiddenByAdmin,
       author: comment.user,
-    })),
+    })) : [],
+    privateMessages: isOwnMoment ? visibleComments.map((comment: any) => ({
+      id: comment.id,
+      content: comment.content,
+      createdAt: comment.createdAt,
+      author: comment.user,
+    })) : [],
   };
 }
