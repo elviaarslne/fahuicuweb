@@ -87,6 +87,67 @@ function formatMomentTime(value: string) {
   }).format(new Date(value));
 }
 
+function formatBranchShortName(branchName?: string | null) {
+  if (!branchName) return "";
+  const normalized = branchName.toLowerCase();
+
+  if (normalized.includes("teluk gong") || normalized.includes("kuang li")) return "Kuang Li";
+  if (normalized.includes("sunter") || normalized.includes("kuang ming")) return "Kuang Ming";
+  if (normalized.includes("grogol") || normalized.includes("kuang chien")) return "Kuang Chien";
+  if (normalized.includes("serpong") || normalized.includes("kuang yuan")) return "Kuang Yuan";
+  if (normalized.includes("pusat")) return "Pusat";
+
+  return branchName.replace(/\s*fo thang\s*$/i, "").trim();
+}
+
+function localDateKey(value: string | Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
+}
+
+function getMomentDateLabel(value: string | Date) {
+  const key = localDateKey(value);
+  const todayKey = localDateKey(new Date());
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = localDateKey(yesterday);
+
+  if (key === todayKey) return "Hari ini";
+  if (key === yesterdayKey) return "Kemarin";
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(new Date(value));
+}
+
+function groupMomentsByDate(moments: Moment[]) {
+  const groups = new Map<string, { key: string; label: string; moments: Moment[] }>();
+
+  for (const moment of moments) {
+    const key = localDateKey(moment.createdAt);
+    const existing = groups.get(key);
+    if (existing) {
+      existing.moments.push(moment);
+    } else {
+      groups.set(key, { key, label: getMomentDateLabel(moment.createdAt), moments: [moment] });
+    }
+  }
+
+  return Array.from(groups.values())
+    .sort((a, b) => b.key.localeCompare(a.key))
+    .map((group) => ({
+      ...group,
+      moments: [...group.moments].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    }));
+}
+
 function Avatar({ user, size = "md" }: { user?: Moment["author"] | null; size?: "sm" | "md" | "lg" }) {
   const name = displayName(user);
   const sizeClass = size === "lg" ? "h-16 w-16 text-xl" : size === "sm" ? "h-9 w-9 text-sm" : "h-11 w-11 text-base";
@@ -341,6 +402,8 @@ export default function ActivityFeedClient({ profile }: { profile: Profile }) {
   const [storyIndex, setStoryIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const viewerName = profile.username ? `@${profile.username}` : profile.fullName;
+  const currentYear = new Date().getFullYear();
+  const homeBranchLabel = formatBranchShortName(profile.homeBranch);
 
   async function loadMoments() {
     setLoading(true);
@@ -377,6 +440,8 @@ export default function ActivityFeedClient({ profile }: { profile: Profile }) {
       .filter((moment) => moment.userId === profile.id)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [moments, profile.id]);
+
+  const groupedMyMoments = useMemo(() => groupMomentsByDate(myMoments), [myMoments]);
 
   function chooseFile(file?: File | null) {
     setMessage("");
@@ -492,10 +557,10 @@ export default function ActivityFeedClient({ profile }: { profile: Profile }) {
             <Avatar user={{ id: profile.id, fullName: profile.fullName, chineseName: profile.chineseName, username: profile.username, profilePhotoUrl: profile.profilePhotoUrl }} size="lg" />
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-[#A17700]">Moments</p>
-              <h1 className="mt-1 text-3xl font-black text-[#1F1F1F]">Lihat sekali, apa adanya.</h1>
+              <h1 className="mt-1 text-3xl font-black text-[#1F1F1F]">Fa Hui Cu {currentYear}</h1>
               <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-[#6B6254]">
                 {profile.username ? <span className="rounded-full bg-[#FFF8E8] px-3 py-1">@{profile.username}</span> : null}
-                {profile.homeBranch ? <span className="rounded-full bg-[#FFF8E8] px-3 py-1">{profile.homeBranch}</span> : null}
+                {homeBranchLabel ? <span className="rounded-full bg-[#FFF8E8] px-3 py-1">{homeBranchLabel}</span> : null}
                 {profile.currentClass ? <span className="rounded-full bg-[#FFF8E8] px-3 py-1">{profile.currentClass}</span> : null}
                 <span className="rounded-full bg-[#FFF8E8] px-3 py-1">{myMoments.length} Moment</span>
               </div>
@@ -519,7 +584,6 @@ export default function ActivityFeedClient({ profile }: { profile: Profile }) {
                 <span className="grid place-items-center gap-3">
                   <span className="grid h-16 w-16 place-items-center rounded-full bg-[#F4C62B] text-[#1F1F1F]"><Camera size={28} /></span>
                   <span className="text-lg font-black text-[#1F1F1F]">Ambil Moment</span>
-                  <span className="text-sm font-semibold text-[#6B6254]">Tanpa edit. Tanpa caption.</span>
                 </span>
               </button>
             )}
@@ -560,8 +624,15 @@ export default function ActivityFeedClient({ profile }: { profile: Profile }) {
         {loading ? (
           <div className="grid place-items-center rounded-[2rem] border border-[#E8DDC4] bg-[#FFFDF7] p-10 text-[#6B6254]"><Loader2 className="animate-spin" /></div>
         ) : myMoments.length ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {myMoments.map((moment) => <MyMomentTile key={moment.id} moment={moment} onOpen={openOwnMoment} />)}
+          <div className="space-y-8">
+            {groupedMyMoments.map((group) => (
+              <div key={group.key} className="space-y-3">
+                <h3 className="text-xs font-black uppercase tracking-[0.18em] text-[#A17700]">{group.label}</h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {group.moments.map((moment) => <MyMomentTile key={moment.id} moment={moment} onOpen={openOwnMoment} />)}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <EmptyState text="Belum ada Moment dari kamu." cta="Ambil Moment" onCta={() => inputRef.current?.click()} />
