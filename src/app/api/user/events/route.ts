@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 
+function isTrainingCategory(category?: string | null) {
+  const normalized = (category || "").toLowerCase();
+  return normalized.includes("training") || normalized.includes("pelatihan");
+}
+
 export async function GET() {
   try {
     const user = await getCurrentUser();
@@ -29,11 +34,13 @@ export async function GET() {
       orderBy: { startAt: "asc" },
     });
 
+    const sidangDharmaEvents = events.filter((event) => !isTrainingCategory(event.category));
+
     return NextResponse.json({
-      events,
-      today: events.filter((event) => event.startAt.toDateString() === now.toDateString()),
-      nextTwoWeeks: events.filter((event) => event.startAt > now && event.startAt <= twoWeeks),
-      future: events.filter((event) => event.startAt > twoWeeks),
+      events: sidangDharmaEvents,
+      today: sidangDharmaEvents.filter((event) => event.startAt.toDateString() === now.toDateString()),
+      nextTwoWeeks: sidangDharmaEvents.filter((event) => event.startAt > now && event.startAt <= twoWeeks),
+      future: sidangDharmaEvents.filter((event) => event.startAt > twoWeeks),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Gagal mengambil acara.";

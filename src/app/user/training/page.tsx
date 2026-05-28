@@ -1,57 +1,55 @@
 import AppChrome from "@/components/AppChrome";
-import StatusBadge from "@/components/StatusBadge";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
+
+const userTrainingSections = [
+  {
+    title: "Batch yang tersedia",
+    description: "Nanti menampilkan batch training yang eligible untuk kamu berdasarkan umur, kelas, role, dan aturan training.",
+  },
+  {
+    title: "Training Saya",
+    description: "Nanti menampilkan batch training yang sudah kamu ikuti, lengkap dengan status enrollment dan jadwal sesi.",
+  },
+  {
+    title: "Jadwal Sesi",
+    description: "Training berjalan beberapa kali, misalnya mingguan selama beberapa bulan. Jadwal akan ditampilkan per batch.",
+  },
+  {
+    title: "Progress",
+    description: "Progress training akan dihitung dari attendance, tugas, dan ujian setelah completion rules aktif.",
+  },
+];
 
 export default async function TrainingPage() {
   const user = await getCurrentUser();
-  if (!user) return <AppChrome><div className="surface rounded-lg p-6">Silakan login dahulu.</div></AppChrome>;
-
-  const trainings = await prisma.event.findMany({
-    where: {
-      OR: [
-        { category: { contains: "training" } },
-        { category: { contains: "pelatihan" } },
-        { participants: { some: { userId: user.id, role: { in: ["TRAINER", "SPEAKER"] } } } },
-      ],
-    },
-    include: {
-      hostingBranch: true,
-      sessions: { orderBy: [{ orderNumber: "asc" }, { startAt: "asc" }] },
-      participants: { where: { userId: user.id } },
-    },
-    orderBy: { startAt: "asc" },
-    take: 20,
-  });
+  if (!user) {
+    return (
+      <AppChrome>
+        <div className="surface rounded-lg p-6">Silakan login dahulu.</div>
+      </AppChrome>
+    );
+  }
 
   return (
     <AppChrome>
       <section className="mb-6 rounded-lg border border-black/10 bg-white p-6 shadow-sm">
         <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#9a6a00]">Training</p>
         <h1 className="mt-2 text-3xl font-black text-[#1f1f1f]">Training Saya</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">Ruang ringkas untuk pelatihan yang tersedia atau yang kamu pegang sebagai trainer/speaker.</p>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
+          Training adalah program pembelajaran berbasis batch. Modul ini dipisahkan dari Sidang Dharma dan akan menampilkan enrollment, sesi, trainer, attendance, serta progress saat backend Training aktif.
+        </p>
       </section>
+
       <div className="grid gap-4 lg:grid-cols-2">
-        {trainings.map((event) => (
-          <article key={event.id} className="surface rounded-lg p-5">
+        {userTrainingSections.map((section) => (
+          <article key={section.title} className="surface rounded-lg p-5">
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="font-semibold text-neutral-950">{event.title}</h2>
-                <p className="mt-1 text-xs text-neutral-500">{event.hostingBranch.name} • {new Date(event.startAt).toLocaleString("id-ID")}</p>
-              </div>
-              <StatusBadge value={event.status} />
+              <h2 className="font-semibold text-neutral-950">{section.title}</h2>
+              <span className="rounded-full bg-[#fff7e8] px-3 py-1 text-xs font-bold text-[#9a6a00]">Belum aktif</span>
             </div>
-            <div className="mt-4 space-y-2">
-              {event.sessions.map((session) => (
-                <div key={session.id} className="rounded-lg bg-[#fff7e8] p-3 text-sm">
-                  <p className="font-semibold text-neutral-900">{session.title}</p>
-                  <p className="text-xs text-neutral-500">{session.description || "Belum ada deskripsi."}</p>
-                </div>
-              ))}
-            </div>
+            <p className="mt-3 text-sm leading-6 text-neutral-600">{section.description}</p>
           </article>
         ))}
-        {trainings.length === 0 ? <p className="text-sm text-neutral-500">Belum ada training yang relevan.</p> : null}
       </div>
     </AppChrome>
   );

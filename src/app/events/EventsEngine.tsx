@@ -100,16 +100,16 @@ export default function EventsEngine() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/events");
+      const response = await fetch("/api/events?domain=dharma");
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || "Gagal mengambil data event.");
+      if (!response.ok) throw new Error(data?.error || "Gagal mengambil data Sidang Dharma.");
       setEvents(data.events);
       setUsers(data.users);
       setClassLevels(data.classLevels);
       setBranches(data.branches || []);
       setSelectedEventId((current) => current || data.events[0]?.id || "");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal mengambil data event.");
+      setError(err instanceof Error ? err.message : "Gagal mengambil data Sidang Dharma.");
     } finally {
       setLoading(false);
     }
@@ -146,12 +146,12 @@ export default function EventsEngine() {
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || "Gagal membuat event.");
-      setMessage("Event berhasil dibuat sebagai Draft.");
+      if (!response.ok) throw new Error(data?.error || "Gagal membuat Sidang Dharma.");
+      setMessage("Sidang Dharma berhasil dibuat sebagai Draft.");
       await loadEvents();
       setSelectedEventId(data.event.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal membuat event.");
+      setError(err instanceof Error ? err.message : "Gagal membuat Sidang Dharma.");
     } finally {
       setSaving(false);
     }
@@ -184,29 +184,29 @@ export default function EventsEngine() {
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || "Gagal update event.");
-      setMessage("Info event berhasil diperbarui.");
+      if (!response.ok) throw new Error(data?.error || "Gagal update Sidang Dharma.");
+      setMessage("Info Sidang Dharma berhasil diperbarui.");
       await loadEvents();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal update event.");
+      setError(err instanceof Error ? err.message : "Gagal update Sidang Dharma.");
     } finally {
       setSaving(false);
     }
   }
 
   async function deleteEvent(eventId: string) {
-    if (!confirm("Hapus event ini? Data participant, sesi, dan attendance terkait akan ikut terhapus.")) return;
+    if (!confirm("Hapus Sidang Dharma ini? Data participant, sesi, dan attendance terkait akan ikut terhapus.")) return;
     setError(null);
     setMessage(null);
     const response = await fetch(`/api/events/${eventId}`, { method: "DELETE" });
     const data = await response.json();
     if (!response.ok) {
-      setError(data?.error || "Gagal menghapus event.");
+      setError(data?.error || "Gagal menghapus Sidang Dharma.");
       return;
     }
     setEvents((current) => current.filter((event) => event.id !== eventId));
     setSelectedEventId((current) => (current === eventId ? "" : current));
-    setMessage("Event berhasil dihapus.");
+    setMessage("Sidang Dharma berhasil dihapus.");
   }
 
   async function advanceEventStatus(eventId: string, currentStatus: string) {
@@ -221,11 +221,11 @@ export default function EventsEngine() {
     });
     const data = await response.json();
     if (!response.ok) {
-      setError(data?.error || "Gagal update lifecycle event.");
+      setError(data?.error || "Gagal update lifecycle Sidang Dharma.");
       return;
     }
     setEvents((current) => current.map((event) => (event.id === eventId ? { ...event, status: nextStatus } : event)));
-    setMessage(`Lifecycle event lanjut ke ${getEventStatusLabel(nextStatus)}.`);
+    setMessage(`Lifecycle Sidang Dharma lanjut ke ${getEventStatusLabel(nextStatus)}.`);
   }
 
   async function addParticipant(formData: FormData) {
@@ -255,17 +255,17 @@ export default function EventsEngine() {
   }
 
   if (loading) {
-    return <div className="mt-5 rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-500">Memuat event engine...</div>;
+    return <div className="mt-5 rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-500">Memuat perencanaan Sidang Dharma...</div>;
   }
 
   return (
     <div className="mt-5 space-y-5">
       <div className="surface flex flex-wrap gap-2 rounded-lg p-2">
         {[
-          { id: "overview", label: "Daftar Event" },
-          { id: "create", label: "Buat Draft" },
+          { id: "overview", label: "Daftar Sidang Dharma" },
+          { id: "create", label: "Buat Sidang Dharma" },
           { id: "edit", label: "Edit Info" },
-          { id: "participants", label: "Role Event" },
+          { id: "participants", label: "Role Sidang Dharma" },
         ].map((item) => (
           <button
             key={item.id}
@@ -296,8 +296,9 @@ export default function EventsEngine() {
           <fieldset className="rounded-lg border border-neutral-200 bg-white p-4">
             <legend className="px-1 text-sm font-bold text-[#1f1f1f]">Basic info</legend>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
-              <input name="title" className="rounded-md border border-neutral-200 px-3 py-2" placeholder="Judul event" required />
-              <input name="category" className="rounded-md border border-neutral-200 px-3 py-2" placeholder="Kategori: Training / Dharma Assembly / Meeting" required />
+              <input name="title" className="rounded-md border border-neutral-200 px-3 py-2" placeholder="Judul Sidang Dharma" required />
+              <input name="category" type="hidden" value="SIDANG_DHARMA" />
+              <div className="rounded-md border border-neutral-200 bg-[#fff7e8] px-3 py-2 text-sm font-semibold text-neutral-700">Sidang Dharma</div>
               <textarea name="description" className="min-h-20 rounded-md border border-neutral-200 px-3 py-2 md:col-span-2" placeholder="Deskripsi opsional" />
             </div>
           </fieldset>
@@ -305,7 +306,7 @@ export default function EventsEngine() {
             <legend className="px-1 text-sm font-bold text-[#1f1f1f]">Branch, class, target</legend>
             <div className="mt-3 grid gap-3 md:grid-cols-3">
               <select name="hostingBranchId" className="rounded-md border border-neutral-200 px-3 py-2" required>
-                <option value="">Pilih cabang event</option>
+                <option value="">Pilih cabang Sidang Dharma</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>{branch.name} - {branch.foThangName}</option>
                 ))}
@@ -338,10 +339,10 @@ export default function EventsEngine() {
           </fieldset>
           <label className="flex items-center gap-2 text-sm text-neutral-600">
             <input name="isConfirmed" type="checkbox" className="size-4" />
-            Event sudah dikonfirmasi
+            Sidang Dharma sudah dikonfirmasi
           </label>
           <button disabled={saving} className="rounded-md bg-[#f4b63f] px-4 py-2.5 text-sm font-bold text-[#1f1f1f] disabled:opacity-60">
-            {saving ? "Menyimpan..." : "Buat Draft Event"}
+            {saving ? "Menyimpan..." : "Buat Draft Sidang Dharma"}
           </button>
         </form>
       </section>
@@ -351,7 +352,7 @@ export default function EventsEngine() {
       <section className="space-y-6">
         <div className="surface rounded-lg p-5">
           <h2 className="text-lg font-semibold text-[#1f1f1f]">Workflow Sidang Dharma</h2>
-          <p className="mt-1 text-sm text-neutral-500">Draft tidak tampil di user end. Setelah publish, registration, attendance, feedback, dan archive mengikuti lifecycle event.</p>
+          <p className="mt-1 text-sm text-neutral-500">Draft tidak tampil di user end. Setelah publish, registration, attendance, feedback, dan archive mengikuti lifecycle Sidang Dharma.</p>
           <div className="mt-4 overflow-x-auto">
             <div className="flex min-w-max items-center gap-2">
               {eventStatusOptions.map((item, index) => (
@@ -369,7 +370,7 @@ export default function EventsEngine() {
         <div className="grid gap-4">
           {events.length === 0 ? (
             <div className="surface rounded-lg p-5 text-sm text-neutral-600">
-              Belum ada event. Buat Draft Event pertama dari form di sebelah kiri.
+              Belum ada Sidang Dharma. Buat draft pertama dari tab Buat Sidang Dharma.
             </div>
           ) : null}
           {events.map((event) => (
@@ -389,7 +390,7 @@ export default function EventsEngine() {
                     className="block rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-bold text-neutral-700 hover:bg-[#fff7e8]"
                     href={`/events/${event.id}`}
                   >
-                    Detail event
+                    Detail Sidang Dharma
                   </Link>
                   {getNextEventStatus(event.status) ? (
                     <button
@@ -414,9 +415,9 @@ export default function EventsEngine() {
                 <div className="rounded-md bg-[#fff7e8] p-3 text-xs md:col-span-2">QR token: <strong>{event.qrToken}</strong></div>
               </div>
               <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Event participants</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Participant Sidang Dharma</p>
                 {event.participants.length === 0 ? (
-                  <p className="mt-2 text-sm text-neutral-500">Belum ada participant role.</p>
+                  <p className="mt-2 text-sm text-neutral-500">Belum ada role Sidang Dharma.</p>
                 ) : (
                   <div className="mt-2 grid gap-2 md:grid-cols-2">
                     {event.participants.map((participant) => (
@@ -439,8 +440,8 @@ export default function EventsEngine() {
       {activePanel === "edit" ? (
       <section className="surface rounded-lg p-5 xl:col-span-2">
         <div className="mb-6 rounded-lg border border-[#f4b63f]/30 bg-[#fff7e8] p-4">
-          <h2 className="text-lg font-semibold text-[#1f1f1f]">Edit info event</h2>
-          <p className="mt-1 text-sm text-neutral-500">Pilih event dari daftar, lalu update detail operasionalnya.</p>
+          <h2 className="text-lg font-semibold text-[#1f1f1f]">Edit info Sidang Dharma</h2>
+          <p className="mt-1 text-sm text-neutral-500">Pilih Sidang Dharma dari daftar, lalu update detail operasionalnya.</p>
           <select className="mt-4 w-full rounded-md border border-neutral-200 px-3 py-2" value={selectedEvent?.id || ""} onChange={(event) => setSelectedEventId(event.target.value)}>
             {events.map((event) => (
               <option key={event.id} value={event.id}>{event.title}</option>
@@ -455,7 +456,7 @@ export default function EventsEngine() {
                 updateEventInfo(new FormData(event.currentTarget));
               }}
             >
-              <input name="title" defaultValue={selectedEvent.title} className="rounded-md border border-neutral-200 px-3 py-2" placeholder="Judul event" required />
+              <input name="title" defaultValue={selectedEvent.title} className="rounded-md border border-neutral-200 px-3 py-2" placeholder="Judul Sidang Dharma" required />
               <select name="hostingBranchId" defaultValue={selectedEvent.hostingBranchId} className="rounded-md border border-neutral-200 px-3 py-2" required>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
@@ -463,7 +464,8 @@ export default function EventsEngine() {
                   </option>
                 ))}
               </select>
-              <input name="category" defaultValue={selectedEvent.category} className="rounded-md border border-neutral-200 px-3 py-2" placeholder="Kategori" required />
+              <input name="category" type="hidden" defaultValue="SIDANG_DHARMA" />
+              <div className="rounded-md border border-neutral-200 bg-[#fff7e8] px-3 py-2 text-sm font-semibold text-neutral-700">Sidang Dharma</div>
               <textarea name="purpose" defaultValue={selectedEvent.purpose} className="min-h-20 rounded-md border border-neutral-200 px-3 py-2 md:col-span-2" placeholder="Tujuan acara" required />
               <textarea name="expectedOutcome" defaultValue={selectedEvent.expectedOutcome} className="min-h-20 rounded-md border border-neutral-200 px-3 py-2 md:col-span-2" placeholder="Expected outcome" required />
               <textarea name="description" defaultValue={selectedEvent.description || ""} className="min-h-20 rounded-md border border-neutral-200 px-3 py-2 md:col-span-2" placeholder="Deskripsi opsional" />
@@ -487,17 +489,17 @@ export default function EventsEngine() {
               </label>
               <label className="flex items-center gap-2 text-sm text-neutral-600 md:col-span-2">
                 <input name="isConfirmed" type="checkbox" defaultChecked={selectedEvent.isConfirmed} className="size-4" />
-                Event sudah dikonfirmasi
+                Sidang Dharma sudah dikonfirmasi
               </label>
               <button disabled={saving} className="rounded-md bg-[#f4b63f] px-4 py-2.5 text-sm font-bold text-[#1f1f1f] disabled:opacity-60">
-                Simpan perubahan event
+                Simpan perubahan Sidang Dharma
               </button>
               <button type="button" onClick={() => deleteEvent(selectedEvent.id)} className="rounded-md border border-red-200 bg-white px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50">
-                Delete Event
+                Delete Sidang Dharma
               </button>
             </form>
           ) : (
-            <p className="mt-3 text-sm text-neutral-500">Belum ada event yang bisa diedit.</p>
+            <p className="mt-3 text-sm text-neutral-500">Belum ada Sidang Dharma yang bisa diedit.</p>
           )}
         </div>
       </section>
@@ -505,9 +507,9 @@ export default function EventsEngine() {
 
       {activePanel === "participants" ? (
       <section className="surface rounded-lg p-5">
-        <h2 className="text-lg font-semibold text-[#1f1f1f]">Assign participant role</h2>
+        <h2 className="text-lg font-semibold text-[#1f1f1f]">Assign role Sidang Dharma</h2>
         <p className="mt-1 text-sm text-neutral-500">
-          Satu user bisa punya role berbeda di event berbeda. Ini menjadi dasar intelligence acara, absensi, feedback, dan credit.
+          Satu user bisa punya role berbeda di Sidang Dharma berbeda. Ini menjadi dasar operasional, absensi, feedback, dan credit.
         </p>
         <form
           className="mt-4 grid gap-3 md:grid-cols-4"
@@ -541,7 +543,7 @@ export default function EventsEngine() {
             ))}
           </select>
           <button disabled={saving || !selectedEvent} className="rounded-md bg-[#1f1f1f] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 md:col-span-4">
-            Tambahkan ke event
+            Tambahkan ke Sidang Dharma
           </button>
         </form>
       </section>

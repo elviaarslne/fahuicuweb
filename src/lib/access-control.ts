@@ -34,27 +34,27 @@ export const accessMatrix: Record<AccessAction, {
   },
   viewEvents: {
     label: "View events",
-    description: "Melihat daftar acara, sesi training, Dharma Assembly, dan detail umum.",
+    description: "Melihat Sidang Dharma dan Training sebagai domain operasional yang terpisah.",
     access: { MEMBER: "allow", TRAINER: "allow", KETUA: "allow", ADMIN: "allow", SUPER_ADMIN: "allow" },
   },
   registerEvent: {
     label: "Register event",
-    description: "Mendaftar sebagai peserta acara atau training yang dibuka.",
+    description: "Mendaftar Sidang Dharma yang dibuka. Training memakai enrollment batch terpisah saat modul Training aktif.",
     access: { MEMBER: "allow", TRAINER: "allow", KETUA: "allow", ADMIN: "allow", SUPER_ADMIN: "allow" },
   },
   createEvent: {
     label: "Create event",
-    description: "Membuat acara, training, Dharma Assembly, target kelas, tujuan, dan expected outcome.",
+    description: "Membuat dan mengelola Sidang Dharma. Training memakai workflow batch terpisah.",
     access: { MEMBER: "deny", TRAINER: "deny", KETUA: "allow", ADMIN: "allow", SUPER_ADMIN: "allow" },
   },
   editEvent: {
     label: "Edit event",
-    description: "Mengubah detail acara, status, peserta, QR attendance, dan materi acara.",
+    description: "Mengubah detail Sidang Dharma, lifecycle, peserta, QR attendance, dan materi terkait.",
     access: { MEMBER: "deny", TRAINER: "deny", KETUA: "allow", ADMIN: "allow", SUPER_ADMIN: "allow" },
   },
   manageEventParticipants: {
     label: "Manage event participants",
-    description: "Menetapkan user ke event role seperti attendee, coordinator, MC, trainer, speaker, atau pengawas.",
+    description: "Menetapkan user ke role Sidang Dharma seperti attendee, coordinator, MC, speaker, atau pengawas.",
     access: { MEMBER: "deny", TRAINER: "deny", KETUA: "allow", ADMIN: "allow", SUPER_ADMIN: "allow" },
   },
   manageAttendance: {

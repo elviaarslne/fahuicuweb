@@ -27,21 +27,36 @@ const eventSchema = z.object({
   status: z.enum(statusValues).optional(),
 });
 
+
+function domainEventWhere(domain: string | null) {
+  const trainingWhere = {
+    OR: [
+      { category: { contains: "training" } },
+      { category: { contains: "pelatihan" } },
+    ],
+  };
+
+  if (domain === "training") return trainingWhere;
+  if (domain === "dharma") return { NOT: trainingWhere };
+  return {};
+}
+
 async function getViewer() {
   const user = await getCurrentUser();
   return { user, roles: getRoleNames(user) };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { user, roles } = await getViewer();
     if (isAllowed(roles, "viewEvents") === false) {
       return NextResponse.json({ error: "Tidak punya akses melihat event." }, { status: 403 });
     }
 
+    const domain = new URL(request.url).searchParams.get("domain");
     const [events, users, classLevels, branches] = await Promise.all([
       prisma.event.findMany({
-        where: branchScopedWhere(user),
+        where: { AND: [branchScopedWhere(user), domainEventWhere(domain)] },
         orderBy: { startAt: "asc" },
         include: {
           hostingBranch: true,

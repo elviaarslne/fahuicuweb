@@ -34,6 +34,12 @@ function formatJakartaTime(date: Date) {
   }).format(date);
 }
 
+
+function isTrainingCategory(category?: string | null) {
+  const normalized = (category || "").toLowerCase();
+  return normalized.includes("training") || normalized.includes("pelatihan");
+}
+
 function registrationLabel(status?: string) {
   if (status === "APPROVED") return "Registered";
   if (status === "PENDING_APPROVAL") return "Pending";
@@ -88,17 +94,19 @@ export default async function UserEventsPage({
     orderBy: { startAt: "asc" },
   });
 
+  const sidangDharmaEvents = events.filter((event) => !isTrainingCategory(event.category));
+
   const visibleEvents = {
-    past: events.filter((event) => {
+    past: sidangDharmaEvents.filter((event) => {
       const participant = event.participants[0];
       return ["COMPLETED", "FEEDBACK_COLLECTION", "ARCHIVED"].includes(event.status) && Boolean(participant);
     }),
-    today: events.filter((event) => {
+    today: sidangDharmaEvents.filter((event) => {
       const participant = event.participants[0];
       const isApprovedOrOpen = !participant || participant.registrationStatus === "APPROVED";
       return sameDay(event.startAt, now) && ["PUBLISHED", "REGISTRATION_OPEN", "ONGOING"].includes(event.status) && isApprovedOrOpen;
     }),
-    future: events.filter((event) => event.startAt > now && !sameDay(event.startAt, now) && ["PUBLISHED", "REGISTRATION_OPEN"].includes(event.status)),
+    future: sidangDharmaEvents.filter((event) => event.startAt > now && !sameDay(event.startAt, now) && ["PUBLISHED", "REGISTRATION_OPEN"].includes(event.status)),
   } satisfies Record<UserEventsTab, typeof events>;
   const activeItems = visibleEvents[activeTab];
   const activeMeta = tabs.find((tab) => tab.key === activeTab) ?? tabs[2];
