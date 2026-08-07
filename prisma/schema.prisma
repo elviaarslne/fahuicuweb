@@ -138,6 +138,46 @@ enum CreditLedgerType {
   ADJUSTED
 }
 
+enum TrainingProgramStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum TrainingBatchStatus {
+  DRAFT
+  ENROLLMENT_OPEN
+  ENROLLMENT_CLOSED
+  ONGOING
+  COMPLETED
+  ARCHIVED
+}
+
+enum TrainingEnrollmentStatus {
+  ENROLLED
+  CANCELLED
+  COMPLETED
+  FAILED
+}
+
+enum TrainingAttendanceStatus {
+  NOT_CHECKED_IN
+  PRESENT
+  LATE
+  ABSENT
+  EXCUSED
+}
+
+enum TrainingEligibilityType {
+  AGE
+  CLASS_LEVEL
+  HIERARCHY_ROLE
+  SYSTEM_ROLE
+  DIVISION
+  MANUAL_USER
+}
+
 enum CreditLedgerSource {
   WEJANGAN_REFLECTION
   DAILY_TASK
@@ -147,52 +187,57 @@ enum CreditLedgerSource {
 }
 
 model User {
-  id                       String                   @id @default(cuid())
-  homeBranchId             String                   @default("pusat") @map("home_branch_id")
-  fullName                 String                   @map("full_name")
-  chineseName              String?                  @map("chinese_name")
-  email                    String                   @unique
-  phone                    String?
-  passwordHash             String                   @map("password_hash")
-  profilePhotoUrl          String?                  @map("profile_photo_url")
-  qiuDaoCardUrl            String?                  @map("qiu_dao_card_url")
-  birthDate                DateTime?                @map("birth_date")
-  username                 String?                  @unique
-  bio                      String?                  @db.Text
-  activityProfileUpdatedAt DateTime?                @map("activity_profile_updated_at")
-  memberStatus             MemberStatus             @default(QIU_DAO_BARU) @map("member_status")
-  languagePreference       LanguagePreference       @default(id) @map("language_preference")
-  journalVisibility        JournalVisibility        @default(PRIVATE_ONLY) @map("journal_visibility")
-  selectedWorkspace        WorkspacePreference      @default(MEMBER) @map("selected_workspace")
-  memberCategory           MemberCategory?          @map("member_category")
-  creditBalance            Int                      @default(0) @map("credit_balance")
-  currentClassId           String?                  @map("current_class_id")
-  status                   UserStatus               @default(PENDING)
-  isCoordinatorEligible    Boolean                  @default(false) @map("is_coordinator_eligible")
-  createdAt                DateTime                 @default(now()) @map("created_at")
-  updatedAt                DateTime                 @updatedAt @map("updated_at")
-  homeBranch               Branch                   @relation("UserHomeBranch", fields: [homeBranchId], references: [id])
-  currentClass             ClassLevel?              @relation(fields: [currentClassId], references: [id])
-  systemRoles              UserSystemRole[]
-  eventParticipants        EventParticipant[]
-  eventAttendances         EventAttendance[]
-  approvedParticipants     EventParticipant[]       @relation("ParticipantApproval")
-  feedbacks                Feedback[]
-  userDivisions            UserDivision[]
-  eventSessionsAsSpeaker   EventSession[]           @relation("SessionSpeaker")
-  eventSessionsAsTrainer   EventSession[]           @relation("SessionTrainer")
-  topicFeedbacks           TopicFeedback[]
-  eventReflections         EventReflection[]
-  learningProgress         LearningModuleProgress[]
-  wejanganCreated          DailyWejangan[]          @relation("WejanganCreator")
-  wejanganReflections      WejanganReflection[]
-  activityPosts            ActivityPost[]
-  activityLikes            ActivityLike[]
-  activityComments         ActivityComment[]
-  activityPostViews        ActivityPostView[]       @relation("ActivityPostViews")
-  activityReactions        ActivityReaction[]
-  rewardTransactions       RewardTransaction[]
-  creditLedgerEntries      CreditLedger[]
+  id                           String                   @id @default(cuid())
+  homeBranchId                 String                   @default("pusat") @map("home_branch_id")
+  fullName                     String                   @map("full_name")
+  chineseName                  String?                  @map("chinese_name")
+  email                        String                   @unique
+  phone                        String?
+  passwordHash                 String                   @map("password_hash")
+  profilePhotoUrl              String?                  @map("profile_photo_url")
+  qiuDaoCardUrl                String?                  @map("qiu_dao_card_url")
+  birthDate                    DateTime?                @map("birth_date")
+  username                     String?                  @unique
+  bio                          String?                  @db.Text
+  activityProfileUpdatedAt     DateTime?                @map("activity_profile_updated_at")
+  memberStatus                 MemberStatus             @default(QIU_DAO_BARU) @map("member_status")
+  languagePreference           LanguagePreference       @default(id) @map("language_preference")
+  journalVisibility            JournalVisibility        @default(PRIVATE_ONLY) @map("journal_visibility")
+  selectedWorkspace            WorkspacePreference      @default(MEMBER) @map("selected_workspace")
+  memberCategory               MemberCategory?          @map("member_category")
+  creditBalance                Int                      @default(0) @map("credit_balance")
+  currentClassId               String?                  @map("current_class_id")
+  status                       UserStatus               @default(PENDING)
+  isCoordinatorEligible        Boolean                  @default(false) @map("is_coordinator_eligible")
+  createdAt                    DateTime                 @default(now()) @map("created_at")
+  updatedAt                    DateTime                 @updatedAt @map("updated_at")
+  homeBranch                   Branch                   @relation("UserHomeBranch", fields: [homeBranchId], references: [id])
+  currentClass                 ClassLevel?              @relation(fields: [currentClassId], references: [id])
+  systemRoles                  UserSystemRole[]
+  eventParticipants            EventParticipant[]
+  eventAttendances             EventAttendance[]
+  approvedParticipants         EventParticipant[]       @relation("ParticipantApproval")
+  feedbacks                    Feedback[]
+  userDivisions                UserDivision[]
+  eventSessionsAsSpeaker       EventSession[]           @relation("SessionSpeaker")
+  eventSessionsAsTrainer       EventSession[]           @relation("SessionTrainer")
+  topicFeedbacks               TopicFeedback[]
+  eventReflections             EventReflection[]
+  learningProgress             LearningModuleProgress[]
+  wejanganCreated              DailyWejangan[]          @relation("WejanganCreator")
+  wejanganReflections          WejanganReflection[]
+  activityPosts                ActivityPost[]
+  activityLikes                ActivityLike[]
+  activityComments             ActivityComment[]
+  activityPostViews            ActivityPostView[]       @relation("ActivityPostViews")
+  activityReactions            ActivityReaction[]
+  rewardTransactions           RewardTransaction[]
+  creditLedgerEntries          CreditLedger[]
+  createdTrainingPrograms      TrainingProgram[]        @relation("TrainingProgramCreator")
+  trainingSessionsAsTrainer    TrainingSession[]        @relation("TrainingSessionTrainer")
+  trainingEnrollments          TrainingEnrollment[]     @relation("TrainingEnrollmentUser")
+  trainingAttendances          TrainingAttendance[]     @relation("TrainingAttendanceUser")
+  correctedTrainingAttendances TrainingAttendance[]     @relation("TrainingAttendanceCorrector")
 
   @@map("users")
 }
@@ -248,15 +293,16 @@ model UserDivision {
 }
 
 model Branch {
-  id          String   @id
-  name        String
-  foThangName String   @map("fo_thang_name")
-  slug        String   @unique
-  isCenter    Boolean  @default(false) @map("is_center")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  users       User[]   @relation("UserHomeBranch")
-  events      Event[]  @relation("EventHostingBranch")
+  id              String          @id
+  name            String
+  foThangName     String          @map("fo_thang_name")
+  slug            String          @unique
+  isCenter        Boolean         @default(false) @map("is_center")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  users           User[]          @relation("UserHomeBranch")
+  events          Event[]         @relation("EventHostingBranch")
+  trainingBatches TrainingBatch[] @relation("TrainingBatchHostingBranch")
 
   @@map("branches")
 }
@@ -286,6 +332,137 @@ model ClassLevel {
   learningModules LearningModule[]
 
   @@map("class_levels")
+}
+
+model TrainingProgram {
+  id              String                @id @default(cuid())
+  title           String
+  description     String?               @db.Text
+  purpose         String?               @db.Text
+  expectedOutcome String?               @map("expected_outcome") @db.Text
+  createdByUserId String                @map("created_by_user_id")
+  status          TrainingProgramStatus @default(DRAFT)
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+  createdBy       User                  @relation("TrainingProgramCreator", fields: [createdByUserId], references: [id])
+  batches         TrainingBatch[]
+
+  @@index([createdByUserId])
+  @@map("training_programs")
+}
+
+model TrainingBatch {
+  id                  String                    @id @default(cuid())
+  trainingProgramId   String                    @map("training_program_id")
+  hostingBranchId     String?                   @map("hosting_branch_id")
+  title               String
+  batchCode           String?                   @map("batch_code")
+  startDate           DateTime                  @map("start_date")
+  endDate             DateTime                  @map("end_date")
+  registrationOpenAt  DateTime?                 @map("registration_open_at")
+  registrationCloseAt DateTime?                 @map("registration_close_at")
+  capacity            Int?
+  status              TrainingBatchStatus       @default(DRAFT)
+  createdAt           DateTime                  @default(now()) @map("created_at")
+  updatedAt           DateTime                  @updatedAt @map("updated_at")
+  program             TrainingProgram           @relation(fields: [trainingProgramId], references: [id], onDelete: Cascade)
+  hostingBranch       Branch?                   @relation("TrainingBatchHostingBranch", fields: [hostingBranchId], references: [id], onDelete: SetNull)
+  sessions            TrainingSession[]
+  enrollments         TrainingEnrollment[]
+  eligibilityRules    TrainingEligibilityRule[]
+  completionRule      TrainingCompletionRule?
+
+  @@index([trainingProgramId])
+  @@index([hostingBranchId])
+  @@map("training_batches")
+}
+
+model TrainingSession {
+  id              String               @id @default(cuid())
+  trainingBatchId String               @map("training_batch_id")
+  trainerId       String?              @map("trainer_id")
+  title           String
+  description     String?              @db.Text
+  startAt         DateTime             @map("start_at")
+  endAt           DateTime             @map("end_at")
+  location        String?
+  materialUrl     String?              @map("material_url")
+  orderNumber     Int                  @default(0) @map("order_number")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+  batch           TrainingBatch        @relation(fields: [trainingBatchId], references: [id], onDelete: Cascade)
+  trainer         User?                @relation("TrainingSessionTrainer", fields: [trainerId], references: [id], onDelete: SetNull)
+  attendances     TrainingAttendance[]
+
+  @@index([trainingBatchId])
+  @@index([trainerId])
+  @@map("training_sessions")
+}
+
+model TrainingEnrollment {
+  id              String                   @id @default(cuid())
+  trainingBatchId String                   @map("training_batch_id")
+  userId          String                   @map("user_id")
+  status          TrainingEnrollmentStatus @default(ENROLLED)
+  enrolledAt      DateTime                 @default(now()) @map("enrolled_at")
+  completedAt     DateTime?                @map("completed_at")
+  finalScore      Float?                   @map("final_score")
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  updatedAt       DateTime                 @updatedAt @map("updated_at")
+  batch           TrainingBatch            @relation(fields: [trainingBatchId], references: [id], onDelete: Cascade)
+  user            User                     @relation("TrainingEnrollmentUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([trainingBatchId, userId])
+  @@index([userId])
+  @@map("training_enrollments")
+}
+
+model TrainingAttendance {
+  id                String                   @id @default(cuid())
+  trainingSessionId String                   @map("training_session_id")
+  userId            String                   @map("user_id")
+  status            TrainingAttendanceStatus @default(NOT_CHECKED_IN)
+  checkedInAt       DateTime?                @map("checked_in_at")
+  correctedByUserId String?                  @map("corrected_by_user_id")
+  correctionReason  String?                  @map("correction_reason") @db.Text
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  session           TrainingSession          @relation(fields: [trainingSessionId], references: [id], onDelete: Cascade)
+  user              User                     @relation("TrainingAttendanceUser", fields: [userId], references: [id], onDelete: Cascade)
+  correctedBy       User?                    @relation("TrainingAttendanceCorrector", fields: [correctedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([trainingSessionId, userId])
+  @@index([userId])
+  @@index([correctedByUserId])
+  @@map("training_attendances")
+}
+
+model TrainingEligibilityRule {
+  id              String                  @id @default(cuid())
+  trainingBatchId String                  @map("training_batch_id")
+  type            TrainingEligibilityType
+  operator        String?
+  value           String
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  batch           TrainingBatch           @relation(fields: [trainingBatchId], references: [id], onDelete: Cascade)
+
+  @@index([trainingBatchId])
+  @@map("training_eligibility_rules")
+}
+
+model TrainingCompletionRule {
+  id                       String        @id @default(cuid())
+  trainingBatchId          String        @unique @map("training_batch_id")
+  minimumAttendancePercent Int           @default(80) @map("minimum_attendance_percent")
+  assignmentWeight         Int?          @map("assignment_weight")
+  examWeight               Int?          @map("exam_weight")
+  minimumPassingScore      Int?          @map("minimum_passing_score")
+  createdAt                DateTime      @default(now()) @map("created_at")
+  updatedAt                DateTime      @updatedAt @map("updated_at")
+  batch                    TrainingBatch @relation(fields: [trainingBatchId], references: [id], onDelete: Cascade)
+
+  @@map("training_completion_rules")
 }
 
 model Event {
