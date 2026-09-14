@@ -78,12 +78,6 @@ export default function RegisterForm() {
 
   return (
     <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
-      <div className="rounded-lg border border-[#f4b63f]/40 bg-[#fff7e8] p-4 md:col-span-2">
-        <p className="text-sm font-semibold text-[#1f1f1f]">Pilot sistem saat ini: Fa Hui Cu - Seksi Sidang Dharma</p>
-        <p className="mt-1 text-xs leading-5 text-neutral-600">
-          Data divisi dipakai untuk evaluasi pendaftaran. Sistem operasional V1 tetap berjalan khusus untuk Fa Hui Cu.
-        </p>
-      </div>
       <label className="block">
         <span className="text-sm font-medium text-neutral-700">Nama lengkap</span>
         <input name="fullName" className="focus-ring mt-2 w-full rounded-md border border-neutral-200 px-3 py-2" required />
