@@ -13,7 +13,8 @@ export type AccessAction =
   | "manageAttendance"
   | "approveUser"
   | "viewFeedbackSummary"
-  | "viewAllMembers";
+  | "viewAllMembers"
+  | "manageTraining";
 
 export const accessRoles: AccessRole[] = ["MEMBER", "TRAINER", "KETUA", "ADMIN", "SUPER_ADMIN"];
 
@@ -76,6 +77,11 @@ export const accessMatrix: Record<AccessAction, {
     label: "View all members",
     description: "Melihat database anggota dan pendaftar.",
     access: { MEMBER: "deny", TRAINER: "deny", KETUA: "partial", ADMIN: "allow", SUPER_ADMIN: "allow" },
+  },
+  manageTraining: {
+    label: "Manage training",
+    description: "Membuat dan mengelola program, batch, dan sesi Training. Terpisah dari workflow Sidang Dharma.",
+    access: { MEMBER: "deny", TRAINER: "deny", KETUA: "allow", ADMIN: "allow", SUPER_ADMIN: "allow" },
   },
 };
 
