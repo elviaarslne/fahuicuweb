@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ClipboardCopy, QrCode, RefreshCw } from "lucide-react";
+import QRCode from "qrcode";
 import StatusBadge from "@/components/StatusBadge";
 
 type AttendanceRow = {
@@ -68,6 +69,22 @@ export default function AttendanceEngine() {
     typeof window !== "undefined" && selectedEvent
       ? `${window.location.origin}/attendance/check-in/${selectedEvent.qrToken}`
       : "";
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!checkInUrl) return;
+    let cancelled = false;
+    QRCode.toDataURL(checkInUrl, { margin: 1, width: 192 })
+      .then((dataUrl) => {
+        if (!cancelled) setQrDataUrl(dataUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setQrDataUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [checkInUrl]);
 
   async function loadAttendance() {
     setLoading(true);
@@ -179,12 +196,16 @@ export default function AttendanceEngine() {
 
           <div className="surface rounded-lg p-5">
             <div className="flex items-start gap-4">
-              <div className="grid h-24 w-24 shrink-0 place-items-center rounded-lg border border-dashed border-neutral-300 bg-[#fff7e8]">
-                <QrCode size={54} />
+              <div className="grid size-32 shrink-0 place-items-center overflow-hidden rounded-lg border border-neutral-200 bg-white">
+                {checkInUrl && qrDataUrl ? (
+                  <img src={qrDataUrl} alt="QR check-in" className="size-full object-contain" />
+                ) : (
+                  <QrCode size={54} className="text-neutral-300" />
+                )}
               </div>
               <div className="min-w-0 flex-1">
-                <h2 className="font-semibold text-[#1f1f1f]">QR check-in link</h2>
-                <p className="mt-1 text-sm text-neutral-500">Tempel link ini ke QR code. User lintas cabang harus approved dulu oleh Pengawas sebelum bisa check-in.</p>
+                <h2 className="font-semibold text-[#1f1f1f]">QR check-in</h2>
+                <p className="mt-1 text-sm text-neutral-500">Scan QR ini untuk check-in, atau salin link di bawah. User lintas cabang harus approved dulu oleh Pengawas sebelum bisa check-in.</p>
                 <div className="mt-3 break-all rounded-md bg-[#f5f5f5] p-3 text-sm">{checkInUrl}</div>
                 <button onClick={copyLink} className="mt-3 inline-flex items-center gap-2 rounded-md bg-[#f4b63f] px-3 py-2 text-sm font-bold text-[#1f1f1f]">
                   <ClipboardCopy size={16} /> Copy link

@@ -22,6 +22,7 @@ import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
 import { branchScopedWhere, getRoleNames, userScopedWhere } from "@/lib/branch-scope";
 import { average } from "@/lib/feedback-options";
+import { jakartaDayBoundsUtc } from "@/lib/jakarta-time";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { normalizeWorkspace } from "@/lib/workspace";
@@ -75,6 +76,7 @@ export default async function InternalDashboardPage() {
     ? branchScopedWhere(user)
     : { participants: { some: { userId: user.id } } };
   const memberWhere = userScopedWhere(user);
+  const { start: todayStart, end: todayEnd } = jakartaDayBoundsUtc();
 
   const [
     branches,
@@ -86,7 +88,7 @@ export default async function InternalDashboardPage() {
     availableEvents,
     myParticipants,
     feedbackTodo,
-    wejanganItems,
+    todayWejangan,
     todayEvents,
     pendingTopicFeedbackCount,
     pendingEventReflectionCount,
@@ -162,16 +164,16 @@ export default async function InternalDashboardPage() {
         event: { status: "FEEDBACK_COLLECTION" },
       },
     }),
-    prisma.dailyWejangan.findMany({
+    prisma.dailyWejangan.findFirst({
+      where: { uploadDate: { gte: todayStart, lte: todayEnd } },
       include: { reflections: { where: { userId: user.id } } },
       orderBy: { uploadDate: "desc" },
-      take: 1,
     }),
     prisma.event.findMany({
       where: {
         startAt: {
-          gte: new Date(new Date().setHours(0, 0, 0, 0)),
-          lte: new Date(new Date().setHours(23, 59, 59, 999)),
+          gte: todayStart,
+          lte: todayEnd,
         },
         participants: { some: { userId: user.id, registrationStatus: "APPROVED" } },
       },
@@ -201,8 +203,7 @@ export default async function InternalDashboardPage() {
   ]);
 
   const activeEvents = events.filter((event) => ["PUBLISHED", "REGISTRATION_OPEN", "ONGOING"].includes(event.status)).length;
-  const latestWejangan = wejanganItems[0] ?? null;
-  const alreadyReflectedToday = Boolean(latestWejangan?.reflections.length);
+  const alreadyReflectedToday = Boolean(todayWejangan?.reflections.length);
 
   if (!isLeader && !isTrainer) {
     const twoWeeksFromNow = new Date();
@@ -213,7 +214,7 @@ export default async function InternalDashboardPage() {
       ...availableEvents,
     ]
       .filter((event, index, list) => list.findIndex((item) => item.id === event.id) === index)
-      .filter((event) => event.startAt >= new Date(new Date().setHours(0, 0, 0, 0)) && event.startAt <= twoWeeksFromNow)
+      .filter((event) => event.startAt >= todayStart && event.startAt <= twoWeeksFromNow)
       .sort((a, b) => a.startAt.getTime() - b.startAt.getTime())
       .slice(0, 5);
 
@@ -231,23 +232,27 @@ export default async function InternalDashboardPage() {
                     <h1 className="text-xl font-black text-[#1f1f1f] md:text-2xl">Wejangan Hari Ini</h1>
                     <span className="inline-flex items-center gap-1 text-sm font-medium text-[#6b6254]">
                       <CalendarDays size={15} />
-                      {latestWejangan ? new Date(latestWejangan.uploadDate).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "-"}
+                      {new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Jakarta" })}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-[#6b6254]">{latestWejangan?.source || "Sumber internal"}</p>
-                  <p className="mt-3 line-clamp-2 text-base leading-7 text-[#1f1f1f]/80">
-                    {latestWejangan ? `“${latestWejangan.content}”` : "Belum ada wejangan harian."}
-                  </p>
-                  {latestWejangan ? (
-                    <p className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#a17700]">
-                      <Sparkles size={16} />
-                      {alreadyReflectedToday ? "Refleksi hari ini sudah dikirim." : `Isi refleksi untuk mendapatkan ${latestWejangan.creditReward} credit`}
-                    </p>
-                  ) : null}
+                  {todayWejangan ? (
+                    <>
+                      <p className="mt-2 text-sm font-semibold text-[#6b6254]">{todayWejangan.source || "Sumber internal"}</p>
+                      <p className="mt-3 line-clamp-2 text-base leading-7 text-[#1f1f1f]/80">“{todayWejangan.content}”</p>
+                      <p className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#a17700]">
+                        <Sparkles size={16} />
+                        {alreadyReflectedToday ? "Refleksi hari ini sudah dikirim." : `Isi refleksi untuk mendapatkan ${todayWejangan.creditReward} credit`}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-3 text-base leading-7 text-[#1f1f1f]/70">Belum ada wejangan untuk hari ini.</p>
+                  )}
                 </div>
               </div>
               <div className="shrink-0">
-                <Link href="/user/wejangan" className="btn-primary inline-flex px-5 py-2.5 text-sm font-bold">Baca Wejangan</Link>
+                <Link href="/user/wejangan" className="btn-primary inline-flex px-5 py-2.5 text-sm font-bold">
+                  {todayWejangan ? "Baca Wejangan" : "Lihat wejangan sebelumnya"}
+                </Link>
               </div>
             </div>
           </section>

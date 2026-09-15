@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { isSameJakartaDay } from "@/lib/jakarta-time";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 
@@ -25,37 +27,47 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Wejangan tidak ditemukan." }, { status: 404 });
     }
 
-    const existing = await prisma.wejanganReflection.findUnique({
-      where: { wejanganId_userId: { wejanganId: id, userId: user.id } },
-    });
+    if (!isSameJakartaDay(wejangan.uploadDate)) {
+      return NextResponse.json({ error: "Refleksi hanya bisa diisi untuk wejangan hari ini." }, { status: 403 });
+    }
 
-    const result = await prisma.$transaction(async (tx) => {
-      const account = await tx.user.findUniqueOrThrow({
+    // Race-safe: try create first (atomic INSERT). If a reflection already
+    // exists (created just now by a duplicate/racing submit, or earlier
+    // today), fall back to update instead of crashing on the unique
+    // constraint (wejangan_id, user_id).
+    let isNew = true;
+    let reflection;
+    try {
+      reflection = await prisma.wejanganReflection.create({
+        data: {
+          wejanganId: id,
+          userId: user.id,
+          answer: parsed.data.answer,
+          creditAwarded: wejangan.creditReward,
+        },
+      });
+    } catch (error) {
+      const isDuplicate = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+      if (!isDuplicate) throw error;
+      isNew = false;
+      reflection = await prisma.wejanganReflection.update({
+        where: { wejanganId_userId: { wejanganId: id, userId: user.id } },
+        data: { answer: parsed.data.answer },
+      });
+    }
+
+    if (isNew) {
+      const account = await prisma.user.findUniqueOrThrow({
         where: { id: user.id },
         select: { creditBalance: true },
       });
-
-      const reflection = existing
-        ? await tx.wejanganReflection.update({
-            where: { id: existing.id },
-            data: { answer: parsed.data.answer },
-          })
-        : await tx.wejanganReflection.create({
-            data: {
-              wejanganId: id,
-              userId: user.id,
-              answer: parsed.data.answer,
-              creditAwarded: wejangan.creditReward,
-            },
-          });
-
-      if (!existing) {
-        const balanceAfter = account.creditBalance + wejangan.creditReward;
-        await tx.user.update({
+      const balanceAfter = account.creditBalance + wejangan.creditReward;
+      await prisma.$transaction([
+        prisma.user.update({
           where: { id: user.id },
           data: { creditBalance: balanceAfter },
-        });
-        await tx.creditLedger.create({
+        }),
+        prisma.creditLedger.create({
           data: {
             userId: user.id,
             type: "EARNED",
@@ -66,15 +78,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             referenceId: reflection.id,
             note: `Refleksi wejangan: ${wejangan.title}`,
           },
-        });
-      }
-
-      return reflection;
-    });
+        }),
+      ]);
+    }
 
     return NextResponse.json({
-      reflection: result,
-      creditAwarded: existing ? 0 : wejangan.creditReward,
+      reflection,
+      creditAwarded: isNew ? wejangan.creditReward : 0,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Gagal menyimpan refleksi wejangan.";
