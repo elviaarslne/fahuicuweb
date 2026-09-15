@@ -11,11 +11,7 @@ export default async function AttendancePage() {
   return (
     <AppChrome>
       <section>
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-neutral-500">Attendance Engine</p>
-        <h1 className="mt-2 text-2xl font-semibold text-[#1f1f1f]">Absensi event</h1>
-        <p className="mt-1 max-w-3xl text-sm leading-6 text-neutral-500">
-          V1 memakai QR check-in only. V2 sudah disiapkan secara data dengan check-out, tetapi belum dipakai untuk menghitung kehadiran.
-        </p>
+        <h1 className="text-2xl font-semibold text-[#1f1f1f]">Absensi event</h1>
         {canManageAttendance ? (
           <AttendanceEngine />
         ) : (
