@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import StatusBadge from "@/components/StatusBadge";
-import { eventStatusOptions, getEventStatusLabel, getNextEventStatus, speakerCategoryOptions } from "@/lib/event-options";
+import { eventRoleOptions, eventStatusOptions, getEventStatusLabel, getNextEventStatus, speakerCategoryOptions } from "@/lib/event-options";
 
 type EventRow = {
   id: string;
@@ -69,11 +69,7 @@ function toLocalInputValueFromString(value: string | null) {
   return value ? toLocalInputValue(new Date(value)) : "";
 }
 
-const sidangDharmaRoleOptions = [
-  { value: "COORDINATOR", label: "Koordinator" },
-  { value: "MC", label: "MC" },
-  { value: "SPEAKER", label: "Speaker / Penceramah" },
-];
+const sidangDharmaRoleOptions = eventRoleOptions.filter((item) => item.value !== "ATTENDEE");
 
 function eventRoleLabel(value: string) {
   return sidangDharmaRoleOptions.find((item) => item.value === value)?.label || value;
