@@ -93,7 +93,7 @@ export default async function AppChrome({ children }: { children: React.ReactNod
           email={user?.email}
           profilePhotoUrl={user?.profilePhotoUrl}
         />
-        <main>{children}</main>
+        <main className="min-w-0">{children}</main>
       </div>
     </div>
   );
