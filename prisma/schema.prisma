@@ -563,6 +563,42 @@ model EventAttendance {
   @@map("event_attendances")
 }
 
+enum ScheduleProgram {
+  KUANG_MING
+  KUANG_CHIEN
+  ONLINE
+  XUE_SHENG_KUANG_MING
+  XUE_SHENG_KUANG_CHIEN
+}
+
+enum ScheduleDuplicateStatus {
+  NORMAL
+  POSSIBLE_DUPLICATE
+}
+
+model ScheduleEntry {
+  id              String                  @id @default(cuid())
+  date            DateTime                @map("date")
+  titleZh         String                  @map("title_zh") @db.Text
+  titleId         String?                 @map("title_id") @db.Text
+  instructorName  String?                 @map("instructor_name")
+  program         ScheduleProgram
+  classLabel      String                  @map("class_label")
+  startTime       String?                 @map("start_time")
+  endTime         String?                 @map("end_time")
+  sourceSheet     String                  @map("source_sheet")
+  sourceRow       Int                     @map("source_row")
+  duplicateStatus ScheduleDuplicateStatus @default(NORMAL) @map("duplicate_status")
+  linkedEventId   String?                 @map("linked_event_id")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+
+  @@unique([sourceSheet, sourceRow])
+  @@index([date])
+  @@index([program])
+  @@map("schedule_entries")
+}
+
 model Feedback {
   id                        String   @id @default(cuid())
   eventId                   String   @map("event_id")

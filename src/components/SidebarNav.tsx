@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, BookOpen, CalendarDays, ClipboardCheck, FileText, Gift, Home, Menu, MessageSquareText, QrCode, Settings, Sparkles, Store, Users, X } from "lucide-react";
+import { BarChart3, BookOpen, CalendarClock, CalendarDays, ClipboardCheck, FileText, Gift, Home, Menu, MessageSquareText, QrCode, Settings, Sparkles, Store, Users, X } from "lucide-react";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 
@@ -20,6 +20,7 @@ const iconMap = {
   feedback: BarChart3,
   materials: FileText,
   myClass: BookOpen,
+  schedule: CalendarClock,
   learningModules: FileText,
   dailyWejangan: Sparkles,
   training: Gift,

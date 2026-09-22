@@ -1,6 +1,7 @@
 import {
   BarChart3,
   BookOpen,
+  CalendarClock,
   CalendarDays,
   ClipboardCheck,
   FileText,
@@ -21,6 +22,7 @@ export const appNavItems = [
   { href: "/user/events", labelKey: "events", icon: CalendarDays, action: "viewEvents", workspaces: ["MEMBER"] },
   { href: "/user/classes", labelKey: "myClass", icon: BookOpen, action: "viewEvents", workspaces: ["MEMBER"] },
   { href: "/user/training", labelKey: "training", icon: BookOpen, action: "viewEvents", workspaces: ["MEMBER"] },
+  { href: "/schedule", labelKey: "schedule", icon: CalendarClock, action: "viewSchedule", workspaces: ["MEMBER", "SPEAKER", "TRAINER", "ADMIN"] },
   { href: "/user/activity", labelKey: "activity", icon: MessageSquareText, action: "viewEvents", workspaces: ["MEMBER"] },
   { href: "/user/store", labelKey: "store", icon: Store, action: "viewEvents", workspaces: ["MEMBER"] },
   { href: "/events?domain=dharma", labelKey: "sidangDharma", icon: CalendarDays, action: "viewEvents", workspaces: ["SPEAKER", "TRAINER", "ADMIN"] },

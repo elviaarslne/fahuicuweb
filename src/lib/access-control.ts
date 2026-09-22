@@ -14,7 +14,9 @@ export type AccessAction =
   | "approveUser"
   | "viewFeedbackSummary"
   | "viewAllMembers"
-  | "manageTraining";
+  | "manageTraining"
+  | "viewSchedule"
+  | "manageSchedule";
 
 export const accessRoles: AccessRole[] = ["MEMBER", "TRAINER", "KETUA", "ADMIN", "SUPER_ADMIN"];
 
@@ -81,6 +83,16 @@ export const accessMatrix: Record<AccessAction, {
   manageTraining: {
     label: "Manage training",
     description: "Membuat dan mengelola program, batch, dan sesi Training. Terpisah dari workflow Sidang Dharma.",
+    access: { MEMBER: "deny", TRAINER: "deny", KETUA: "allow", ADMIN: "allow", SUPER_ADMIN: "allow" },
+  },
+  viewSchedule: {
+    label: "View schedule",
+    description: "Melihat jadwal kelas/pengajaran sebagai kalender referensi, terpisah dari Sidang Dharma operasional.",
+    access: { MEMBER: "allow", TRAINER: "allow", KETUA: "allow", ADMIN: "allow", SUPER_ADMIN: "allow" },
+  },
+  manageSchedule: {
+    label: "Manage schedule",
+    description: "Menjalankan/meninjau import jadwal dari workbook sumber ke sistem.",
     access: { MEMBER: "deny", TRAINER: "deny", KETUA: "allow", ADMIN: "allow", SUPER_ADMIN: "allow" },
   },
 };
