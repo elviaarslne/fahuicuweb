@@ -90,6 +90,18 @@ export function canUploadMaterialForEvent(user: CurrentUser, event: EventWithAss
   return Boolean(event.sessions?.some((session) => session.speakerId === user.id || session.trainerId === user.id));
 }
 
+export function mcAttendanceScope(user: NonNullable<CurrentUser>): Prisma.EventWhereInput {
+  return {
+    participants: {
+      some: {
+        userId: user.id,
+        role: { in: [...attendanceCorrectionRoles] },
+        registrationStatus: "APPROVED",
+      },
+    },
+  };
+}
+
 export function operationalEventScope(user: CurrentUser): Prisma.EventWhereInput {
   const roles = getRoleNames(user);
   if (!user || roles.includes("SUPER_ADMIN")) return {};

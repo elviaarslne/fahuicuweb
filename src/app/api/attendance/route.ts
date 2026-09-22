@@ -1,19 +1,30 @@
 import { NextResponse } from "next/server";
 import { isAllowed } from "@/lib/access-control";
 import { branchScopedWhere, getRoleNames } from "@/lib/branch-scope";
+import { mcAttendanceScope } from "@/lib/operational-permissions";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 
-async function requireAttendanceAccess() {
-  const user = await getCurrentUser();
-  const roles = getRoleNames(user);
-  return { user, roles, allowed: isAllowed(roles, "manageAttendance") };
-}
-
 export async function GET(request: Request) {
   try {
-    const access = await requireAttendanceAccess();
-    if (!access.allowed) {
+    const user = await getCurrentUser();
+    const roles = getRoleNames(user);
+
+    let scopeWhere: ReturnType<typeof branchScopedWhere> | null = null;
+
+    if (isAllowed(roles, "manageAttendance")) {
+      scopeWhere = branchScopedWhere(user);
+    } else if (user) {
+      const approvedMcParticipation = await prisma.eventParticipant.findFirst({
+        where: { userId: user.id, role: "MC", registrationStatus: "APPROVED" },
+        select: { id: true },
+      });
+      if (approvedMcParticipation) {
+        scopeWhere = mcAttendanceScope(user);
+      }
+    }
+
+    if (!scopeWhere) {
       return NextResponse.json({ error: "Tidak punya akses melihat attendance." }, { status: 403 });
     }
 
@@ -33,7 +44,7 @@ export async function GET(request: Request) {
           orderBy: { checkedInAt: "desc" },
         },
       },
-      where: eventId ? { id: eventId, ...branchScopedWhere(access.user) } : branchScopedWhere(access.user),
+      where: eventId ? { id: eventId, ...scopeWhere } : scopeWhere,
     });
 
     return NextResponse.json({ events });
