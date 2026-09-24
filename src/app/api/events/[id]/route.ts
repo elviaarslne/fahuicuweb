@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getRoleNames } from "@/lib/branch-scope";
 import { canAdvanceEventStatus, eventStatusOptions, getEventStatusLabel } from "@/lib/event-options";
-import { canOperateEventByBranchOrAssignment } from "@/lib/operational-permissions";
+import { canDeleteEvent, canOperateEventByBranchOrAssignment } from "@/lib/operational-permissions";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 
@@ -119,8 +119,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Event tidak ditemukan." }, { status: 404 });
     }
 
-    if (!canOperateEventByBranchOrAssignment(access.user, existing, ["PENGAWAS", "COORDINATOR"])) {
-      return NextResponse.json({ error: "Hanya pengurus cabang, Pengawas, atau Koordinator event yang dapat menghapus event." }, { status: 403 });
+    if (!canDeleteEvent(access.user, existing)) {
+      return NextResponse.json({ error: "Hanya pengurus cabang (Ketua/Admin) atau Super Admin yang dapat menghapus event." }, { status: 403 });
     }
 
     await prisma.event.delete({ where: { id } });

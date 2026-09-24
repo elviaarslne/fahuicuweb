@@ -1,7 +1,23 @@
 import AppChrome from "@/components/AppChrome";
+import { normalizeAccessRole } from "@/lib/access-control";
+import { operationalEventRoles } from "@/lib/operational-permissions";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/session";
 import EventsEngine from "./EventsEngine";
 
-export default function EventsPage() {
+export default async function EventsPage() {
+  const user = await getCurrentUser();
+  const roles = user?.systemRoles.map((role) => role.role) ?? [];
+
+  let canAccessEventsAdmin = normalizeAccessRole(roles) !== "MEMBER";
+  if (!canAccessEventsAdmin && user) {
+    const assignedOperationalRole = await prisma.eventParticipant.findFirst({
+      where: { userId: user.id, role: { in: [...operationalEventRoles] }, registrationStatus: "APPROVED" },
+      select: { id: true },
+    });
+    canAccessEventsAdmin = Boolean(assignedOperationalRole);
+  }
+
   return (
     <AppChrome>
       <section className="surface rounded-lg p-5">
@@ -11,7 +27,15 @@ export default function EventsPage() {
           Kelola draft, assignment operasional, publikasi, registrasi, absensi, dan feedback tanpa menampilkan draft ke user end.
         </p>
       </section>
-      <EventsEngine />
+      {canAccessEventsAdmin ? (
+        <EventsEngine />
+      ) : (
+        <div className="mt-5 rounded-lg border border-neutral-200 bg-[#fff7e8] p-5 text-sm leading-6 text-neutral-600">
+          Halaman ini hanya tersedia untuk Ketua, Sub-ketua, Admin, Super Admin, Trainer/Speaker, atau anggota yang sudah ditugaskan sebagai
+          Koordinator, MC, atau Pengawas di suatu Sidang Dharma. Daftar Sidang Dharma yang kamu ikuti ada di halaman{" "}
+          <a href="/user/events" className="font-semibold text-[#9a6a00] hover:underline">Event saya</a>.
+        </div>
+      )}
     </AppChrome>
   );
 }

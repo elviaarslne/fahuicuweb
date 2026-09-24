@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import StatusBadge from "@/components/StatusBadge";
+import { getEventStatusLabel } from "@/lib/event-options";
 import {
   feedbackScaleOptions,
   objectiveFeedbackItems,
@@ -190,7 +191,7 @@ export default function FeedbackEngine() {
                   <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">{selectedEvent.purpose}</p>
                   <p className="mt-1 max-w-3xl text-xs leading-5 text-neutral-500">Expected: {selectedEvent.expectedOutcome}</p>
                 </div>
-                <StatusBadge value={selectedEvent.status} />
+                <StatusBadge value={selectedEvent.status} label={getEventStatusLabel(selectedEvent.status)} />
               </div>
               <div className="mt-5 grid gap-3 md:grid-cols-5">
                 <ScoreBox label="Objective" value={selectedEvent.summary?.objective ?? null} />

@@ -1,6 +1,7 @@
 import AppChrome from "@/components/AppChrome";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
+import { EventReflectionForm, SessionFeedbackForm } from "./SessionFeedbackForm";
 import UserEventActions from "./UserEventActions";
 
 function sameDay(a: Date, b: Date) {
@@ -164,6 +165,14 @@ export default async function UserEventsPage({
                   ) : null}
                   {canCheckIn ? <UserEventActions eventId={event.id} qrToken={event.qrToken} canCheckIn={canCheckIn} isRegistered={isRegistered} /> : null}
                 </div>
+                {activeTab === "past" && isApproved ? (
+                  <div className="mt-4 space-y-2 border-t border-[#e8ddc4] pt-4">
+                    {event.sessions.map((session) => (
+                      <SessionFeedbackForm key={session.id} sessionId={session.id} title={session.title} />
+                    ))}
+                    <EventReflectionForm eventId={event.id} />
+                  </div>
+                ) : null}
               </article>
             );
           })}

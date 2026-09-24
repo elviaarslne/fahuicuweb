@@ -21,6 +21,7 @@ import AppChrome from "@/components/AppChrome";
 import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
 import { branchScopedWhere, getRoleNames, userScopedWhere } from "@/lib/branch-scope";
+import { getEventStatusLabel } from "@/lib/event-options";
 import { average } from "@/lib/feedback-options";
 import { jakartaDayBoundsUtc } from "@/lib/jakarta-time";
 import { prisma } from "@/lib/prisma";
@@ -366,7 +367,7 @@ export default async function InternalDashboardPage() {
                         {event.hostingBranch.name} • {new Date(event.startAt).toLocaleDateString("id-ID")} • {event.targetClass?.name || "Semua kelas"}
                       </p>
                     </div>
-                    <StatusBadge value={event.status} />
+                    <StatusBadge value={event.status} label={getEventStatusLabel(event.status)} />
                   </div>
                   <p className={`mt-3 text-xs font-semibold ${belowTarget ? "text-amber-700" : "text-neutral-500"}`}>
                     Absensi {attendanceRate}% • Purpose {purposeScore ? `${purposeScore}/5` : "-"} • Peserta {event._count.participants}/{event.minimumParticipants || "-"} • Feedback {event._count.feedbacks}

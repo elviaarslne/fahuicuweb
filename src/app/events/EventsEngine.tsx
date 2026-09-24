@@ -3,7 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import StatusBadge from "@/components/StatusBadge";
-import { eventRoleOptions, eventStatusOptions, getEventStatusLabel, getNextEventStatus, speakerCategoryOptions } from "@/lib/event-options";
+import {
+  eventRoleOptions,
+  eventStatusOptions,
+  getEventStatusLabel,
+  getNextEventStatus,
+  getRegistrationStatusLabel,
+  getSpeakerCategoryLabel,
+  speakerCategoryOptions,
+} from "@/lib/event-options";
 
 type EventRow = {
   id: string;
@@ -405,7 +413,7 @@ export default function EventsEngine() {
                     {event.hostingBranch?.name || "PUSAT"} • {new Date(event.startAt).toLocaleDateString("id-ID")} • {event._count.participants} peserta
                   </p>
                 </div>
-                <StatusBadge value={event.status} />
+                <StatusBadge value={event.status} label={getEventStatusLabel(event.status)} />
               </button>
             ))}
           </div>
@@ -429,7 +437,7 @@ export default function EventsEngine() {
                   {new Date(selectedEvent.startAt).toLocaleString("id-ID")}{selectedEvent.location ? ` • ${selectedEvent.location}` : ""}
                 </p>
               </div>
-              <StatusBadge value={selectedEvent.status} />
+              <StatusBadge value={selectedEvent.status} label={getEventStatusLabel(selectedEvent.status)} />
             </div>
 
             <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-4">
@@ -536,8 +544,8 @@ export default function EventsEngine() {
                   <div key={participant.id} className="rounded-md bg-[#fff7e8] px-3 py-2 text-sm">
                     <strong>{participant.user.chineseName || participant.user.fullName}</strong>
                     <span className="text-neutral-500"> • {eventRoleLabel(participant.role)}</span>
-                    <span className="text-neutral-500"> • {participant.registrationStatus}</span>
-                    {participant.speakerCategory ? <span className="text-neutral-500"> • {participant.speakerCategory}</span> : null}
+                    <span className="text-neutral-500"> • {getRegistrationStatusLabel(participant.registrationStatus)}</span>
+                    {participant.speakerCategory ? <span className="text-neutral-500"> • {getSpeakerCategoryLabel(participant.speakerCategory)}</span> : null}
                   </div>
                 ))}
               </div>

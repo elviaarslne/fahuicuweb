@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import StatusBadge from "@/components/StatusBadge";
+import { getEventRoleLabel } from "@/lib/event-options";
 
 type PendingUser = {
   id: string;
@@ -137,7 +138,7 @@ export default function ApprovalQueue() {
               <div key={item.id} className="rounded-md bg-[#fff7e8] p-3 text-sm">
                 <p className="font-semibold">{item.user.fullName}</p>
                 <p className="text-xs text-neutral-500">{item.user.homeBranch?.name || "-"} → {item.event.hostingBranch.name}</p>
-                <p className="mt-1 text-xs text-neutral-500">{item.event.title} • {item.event.targetClass?.name || "Semua kelas"} • {item.role}</p>
+                <p className="mt-1 text-xs text-neutral-500">{item.event.title} • {item.event.targetClass?.name || "Semua kelas"} • {getEventRoleLabel(item.role)}</p>
                 <div className="mt-3 flex gap-2">
                   <button disabled={savingId === item.id} onClick={() => updateRegistration(item.id, "APPROVED")} className="rounded-md bg-[#f4b63f] px-3 py-1.5 text-xs font-bold text-[#1f1f1f]">Approve</button>
                   <button disabled={savingId === item.id} onClick={() => updateRegistration(item.id, "REJECTED")} className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-bold text-neutral-700">Reject</button>

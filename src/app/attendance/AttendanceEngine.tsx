@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ClipboardCopy, QrCode, RefreshCw } from "lucide-react";
 import QRCode from "qrcode";
 import StatusBadge from "@/components/StatusBadge";
+import { attendanceStatusOptions, getAttendanceStatusLabel, getEventStatusLabel } from "@/lib/event-options";
 
 type AttendanceRow = {
   id: string;
@@ -41,8 +42,6 @@ type AttendanceEvent = {
   participants: ParticipantRow[];
   attendances: AttendanceRow[];
 };
-
-const attendanceStatusOptions = ["NOT_CHECKED_IN", "PRESENT", "LATE", "ABSENT", "EXCUSED"];
 
 function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleString("id-ID") : "-";
@@ -175,7 +174,7 @@ export default function AttendanceEngine() {
                 <h2 className="mt-1 text-xl font-bold text-[#1f1f1f]">{selectedEvent.title}</h2>
                 <p className="mt-1 text-sm text-neutral-500">{selectedEvent.location || "Lokasi belum diisi"} • {selectedEvent.targetClass?.name || "Semua kelas"}</p>
               </div>
-              <StatusBadge value={selectedEvent.status} />
+              <StatusBadge value={selectedEvent.status} label={getEventStatusLabel(selectedEvent.status)} />
             </div>
 
             <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -232,7 +231,7 @@ export default function AttendanceEngine() {
                   {selectedEvent.attendances.map((attendance) => (
                     <tr key={attendance.id} className="bg-white">
                       <td className="rounded-l-md px-3 py-3 font-semibold text-[#1f1f1f]">{personName(attendance.user)}</td>
-                      <td className="px-3 py-3"><StatusBadge value={attendance.status} /></td>
+                      <td className="px-3 py-3"><StatusBadge value={attendance.status} label={getAttendanceStatusLabel(attendance.status)} /></td>
                       <td className="px-3 py-3 text-neutral-600">{attendance.source}</td>
                       <td className="px-3 py-3 text-neutral-600">{formatDate(attendance.checkedInAt)}</td>
                       <td className="px-3 py-3 text-neutral-400">{formatDate(attendance.checkedOutAt)}</td>
@@ -243,8 +242,8 @@ export default function AttendanceEngine() {
                           onChange={(event) => manualUpdate(attendance.id, event.target.value)}
                           className="rounded-md border border-neutral-200 px-2 py-1.5 text-xs"
                         >
-                          {attendanceStatusOptions.map((status) => (
-                            <option key={status} value={status}>{status}</option>
+                          {attendanceStatusOptions.map((item) => (
+                            <option key={item.value} value={item.value}>{item.label}</option>
                           ))}
                         </select>
                       </td>

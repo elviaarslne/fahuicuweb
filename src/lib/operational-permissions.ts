@@ -63,6 +63,16 @@ export function canOperateEventByBranchOrAssignment(
   return hasApprovedEventRole(user, event, assignmentRoles);
 }
 
+// Deleting an event is destructive (cascades participants/attendances/materials), so unlike
+// canOperateEventByBranchOrAssignment it deliberately excludes the event-scoped
+// PENGAWAS/COORDINATOR assignment fallback -- only branch leadership or SUPER_ADMIN can delete.
+export function canDeleteEvent(user: CurrentUser, event: EventWithAssignments | null | undefined) {
+  if (!user || !event) return false;
+  const roles = getRoleNames(user);
+  if (roles.includes("SUPER_ADMIN")) return true;
+  return isBranchAdminLevel(roles) && user.homeBranchId === event.hostingBranchId;
+}
+
 export function canApproveParticipantForEvent(user: CurrentUser, event: EventWithAssignments | null | undefined) {
   if (!user || !event) return false;
   const roles = getRoleNames(user);

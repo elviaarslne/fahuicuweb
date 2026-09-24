@@ -2,6 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import AppChrome from "@/components/AppChrome";
 import StatusBadge from "@/components/StatusBadge";
+import {
+  getAttendanceStatusLabel,
+  getEventRoleLabel,
+  getEventStatusLabel,
+  getRegistrationStatusLabel,
+  getSpeakerCategoryLabel,
+} from "@/lib/event-options";
 import { average } from "@/lib/feedback-options";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
@@ -77,7 +84,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <h1 className="mt-2 text-2xl font-black text-[#1f1f1f]">{event.title}</h1>
               <p className="mt-1 text-sm text-neutral-500">{event.hostingBranch.name} • {event.targetClass?.name || "Semua kelas"} • {new Date(event.startAt).toLocaleString("id-ID")}</p>
             </div>
-            <StatusBadge value={event.status} />
+            <StatusBadge value={event.status} label={getEventStatusLabel(event.status)} />
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-4">
             <div className="rounded-md bg-[#fff7e8] p-3 text-sm">Peserta<br /><strong>{event.participants.length}/{event.minimumParticipants || "-"}</strong></div>
@@ -111,9 +118,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                     <td className="px-4 py-3">
                       <Link className="font-semibold underline" href={`/members/${participant.userId}`}>{participant.user.chineseName || participant.user.fullName}</Link>
                     </td>
-                    <td className="px-4 py-3">{participant.role}{participant.speakerCategory ? ` / ${participant.speakerCategory}` : ""}</td>
-                    <td className="px-4 py-3">{participant.registrationStatus}</td>
-                    <td className="px-4 py-3">{attendanceByUser.get(participant.userId)?.status || participant.attendanceStatus}</td>
+                    <td className="px-4 py-3">
+                      {getEventRoleLabel(participant.role)}
+                      {participant.speakerCategory ? ` / ${getSpeakerCategoryLabel(participant.speakerCategory)}` : ""}
+                    </td>
+                    <td className="px-4 py-3">{getRegistrationStatusLabel(participant.registrationStatus)}</td>
+                    <td className="px-4 py-3">{getAttendanceStatusLabel(attendanceByUser.get(participant.userId)?.status || participant.attendanceStatus)}</td>
                     <td className="px-4 py-3">{participant.feedbackSubmitted || feedbackByUser.has(participant.userId) ? "Submitted" : "Belum"}</td>
                   </tr>
                 ))}
@@ -157,7 +167,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               {presenters.map((presenter) => (
                 <div key={presenter.id} className="rounded-md border border-neutral-200 bg-white p-3 text-sm">
                   <strong>{presenter.user.chineseName || presenter.user.fullName}</strong>
-                  <span className="text-neutral-500"> • {presenter.role} • Summary event {event.feedbacks.length ? "tersedia" : "belum ada"}</span>
+                  <span className="text-neutral-500"> • {getEventRoleLabel(presenter.role)} • Summary event {event.feedbacks.length ? "tersedia" : "belum ada"}</span>
                 </div>
               ))}
               {presenters.length === 0 ? <p className="text-sm text-neutral-500">Belum ada trainer/speaker di event ini.</p> : null}

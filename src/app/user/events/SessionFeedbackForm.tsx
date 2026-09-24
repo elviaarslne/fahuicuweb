@@ -5,9 +5,11 @@ import { useState } from "react";
 export function SessionFeedbackForm({ sessionId, title }: { sessionId: string; title: string }) {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const [isError, setIsError] = useState(false);
 
   async function submit(formData: FormData) {
     setMessage("");
+    setIsError(false);
     const response = await fetch(`/api/event-sessions/${sessionId}/feedback`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -21,7 +23,8 @@ export function SessionFeedbackForm({ sessionId, title }: { sessionId: string; t
       }),
     });
     const data = await response.json();
-    setMessage(data.error || "Feedback topik tersimpan.");
+    setIsError(!response.ok);
+    setMessage(!response.ok ? data.error || "Gagal menyimpan feedback topik." : "Feedback topik tersimpan.");
   }
 
   return (
@@ -40,7 +43,7 @@ export function SessionFeedbackForm({ sessionId, title }: { sessionId: string; t
           <textarea name="benefitText" placeholder="Apa manfaatnya untuk kamu?" className="min-h-20 rounded-lg border border-black/10 px-3 py-2 text-sm" />
           <textarea name="improvementText" placeholder="Apa yang bisa diperbaiki?" className="min-h-20 rounded-lg border border-black/10 px-3 py-2 text-sm" />
           <button className="w-fit rounded-full bg-[#f4b63f] px-4 py-2 text-sm font-bold text-black">Simpan feedback</button>
-          {message ? <p className="text-xs font-medium text-neutral-600">{message}</p> : null}
+          {message ? <p className={`text-xs font-medium ${isError ? "text-red-600" : "text-emerald-700"}`}>{message}</p> : null}
         </form>
       ) : null}
     </div>
@@ -50,9 +53,11 @@ export function SessionFeedbackForm({ sessionId, title }: { sessionId: string; t
 export function EventReflectionForm({ eventId }: { eventId: string }) {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const [isError, setIsError] = useState(false);
 
   async function submit(formData: FormData) {
     setMessage("");
+    setIsError(false);
     const response = await fetch("/api/event-reflections", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -64,7 +69,8 @@ export function EventReflectionForm({ eventId }: { eventId: string }) {
       }),
     });
     const data = await response.json();
-    setMessage(data.error || "Refleksi event tersimpan.");
+    setIsError(!response.ok);
+    setMessage(!response.ok ? data.error || "Gagal menyimpan refleksi." : "Refleksi event tersimpan.");
   }
 
   return (
@@ -78,7 +84,7 @@ export function EventReflectionForm({ eventId }: { eventId: string }) {
           <textarea name="mainLearning" placeholder="Pembelajaran utama" className="min-h-20 rounded-lg border border-black/10 px-3 py-2 text-sm" />
           <textarea name="suggestion" placeholder="Saran" className="min-h-20 rounded-lg border border-black/10 px-3 py-2 text-sm" />
           <button className="w-fit rounded-full bg-[#f4b63f] px-4 py-2 text-sm font-bold text-black">Simpan refleksi</button>
-          {message ? <p className="text-xs font-medium text-neutral-600">{message}</p> : null}
+          {message ? <p className={`text-xs font-medium ${isError ? "text-red-600" : "text-emerald-700"}`}>{message}</p> : null}
         </form>
       ) : null}
     </div>
