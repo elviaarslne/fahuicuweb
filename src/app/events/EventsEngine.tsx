@@ -2,14 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { SkeletonList } from "@/components/Skeleton";
 import StatusBadge from "@/components/StatusBadge";
 import {
   eventRoleOptions,
-  eventStatusOptions,
+  getAttendanceSignal,
   getEventStatusLabel,
   getNextEventStatus,
   getRegistrationStatusLabel,
   getSpeakerCategoryLabel,
+  groupParticipantsByOperationalRole,
   speakerCategoryOptions,
 } from "@/lib/event-options";
 
@@ -79,11 +81,28 @@ function toLocalInputValueFromString(value: string | null) {
 
 const sidangDharmaRoleOptions = eventRoleOptions.filter((item) => item.value !== "ATTENDEE");
 
-function eventRoleLabel(value: string) {
-  return sidangDharmaRoleOptions.find((item) => item.value === value)?.label || value;
+type ListTab = "draft" | "upcoming" | "ongoing" | "completed";
+
+const listTabs: Array<{ id: ListTab; label: string; statuses: string[] }> = [
+  { id: "draft", label: "Draft", statuses: ["DRAFT"] },
+  { id: "upcoming", label: "Akan datang", statuses: ["PUBLISHED", "REGISTRATION_OPEN"] },
+  { id: "ongoing", label: "Berlangsung", statuses: ["ONGOING"] },
+  { id: "completed", label: "Selesai", statuses: ["COMPLETED", "FEEDBACK_COLLECTION", "ARCHIVED"] },
+];
+
+function getListPrimaryActionLabel(status: string) {
+  if (status === "DRAFT") return "Lanjutkan persiapan";
+  if (status === "PUBLISHED" || status === "REGISTRATION_OPEN") return "Kelola peserta";
+  if (status === "ONGOING") return "Kelola absensi";
+  return "Lihat hasil";
 }
 
-const statusFilterOptions = [{ value: "ALL", label: "Semua status" }, ...eventStatusOptions];
+function formatTimeRange(startAt: string, endAt: string | null) {
+  const start = new Date(startAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  if (!endAt) return start;
+  const end = new Date(endAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  return `${start}–${end}`;
+}
 
 export default function EventsEngine() {
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -99,7 +118,7 @@ export default function EventsEngine() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [listTab, setListTab] = useState<ListTab>("upcoming");
 
   const selectedEvent = useMemo(
     () => events.find((event) => event.id === selectedEventId),
@@ -108,12 +127,13 @@ export default function EventsEngine() {
 
   const filteredEvents = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
+    const activeStatuses = listTabs.find((tab) => tab.id === listTab)?.statuses ?? [];
     return events.filter((event) => {
       const matchesTerm = !term || event.title.toLowerCase().includes(term);
-      const matchesStatus = statusFilter === "ALL" || event.status === statusFilter;
-      return matchesTerm && matchesStatus;
+      const matchesTab = activeStatuses.includes(event.status);
+      return matchesTerm && matchesTab;
     });
-  }, [events, searchTerm, statusFilter]);
+  }, [events, searchTerm, listTab]);
 
   async function loadEvents() {
     setLoading(true);
@@ -288,7 +308,7 @@ export default function EventsEngine() {
   }
 
   if (loading) {
-    return <div className="mt-5 rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-500">Memuat perencanaan Sidang Dharma...</div>;
+    return <SkeletonList cards={4} />;
   }
 
   return (
@@ -323,7 +343,8 @@ export default function EventsEngine() {
                 }}
               >
                 <fieldset className="rounded-lg border border-neutral-200 bg-white p-4">
-                  <legend className="px-1 text-sm font-bold text-[#1f1f1f]">Basic info</legend>
+                  <legend className="px-1 text-sm font-bold text-[#1f1f1f]">Info dasar</legend>
+                  <p className="px-1 text-xs text-neutral-500">Judul dan deskripsi singkat acara.</p>
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
                     <input name="title" className="rounded-md border border-neutral-200 px-3 py-2" placeholder="Judul Sidang Dharma" required />
                     <input name="category" type="hidden" value="SIDANG_DHARMA" />
@@ -332,7 +353,8 @@ export default function EventsEngine() {
                   </div>
                 </fieldset>
                 <fieldset className="rounded-lg border border-neutral-200 bg-white p-4">
-                  <legend className="px-1 text-sm font-bold text-[#1f1f1f]">Branch, class, target</legend>
+                  <legend className="px-1 text-sm font-bold text-[#1f1f1f]">Peserta & target</legend>
+                  <p className="px-1 text-xs text-neutral-500">Cabang penyelenggara dan siapa yang menjadi target acara.</p>
                   <div className="mt-3 grid gap-3 md:grid-cols-3">
                     <select name="hostingBranchId" className="rounded-md border border-neutral-200 px-3 py-2" required>
                       <option value="">Pilih cabang Sidang Dharma</option>
@@ -352,7 +374,8 @@ export default function EventsEngine() {
                   </div>
                 </fieldset>
                 <fieldset className="rounded-lg border border-neutral-200 bg-white p-4">
-                  <legend className="px-1 text-sm font-bold text-[#1f1f1f]">Schedule & location</legend>
+                  <legend className="px-1 text-sm font-bold text-[#1f1f1f]">Jadwal & lokasi</legend>
+                  <p className="px-1 text-xs text-neutral-500">Kapan dan di mana acara berlangsung.</p>
                   <div className="mt-3 grid gap-3 md:grid-cols-3">
                     <label className="text-sm text-neutral-600">Start<input name="startAt" type="datetime-local" defaultValue={toLocalInputValue(new Date())} className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2" required /></label>
                     <label className="text-sm text-neutral-600">End<input name="endAt" type="datetime-local" className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2" /></label>
@@ -360,16 +383,17 @@ export default function EventsEngine() {
                   </div>
                 </fieldset>
                 <fieldset className="rounded-lg border border-neutral-200 bg-white p-4">
-                  <legend className="px-1 text-sm font-bold text-[#1f1f1f]">Purpose & outcome</legend>
+                  <legend className="px-1 text-sm font-bold text-[#1f1f1f]">Tujuan & publikasi</legend>
+                  <p className="px-1 text-xs text-neutral-500">Info yang tampil ke user end saat dipublish.</p>
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
                     <textarea name="purpose" className="min-h-24 rounded-md border border-neutral-200 px-3 py-2" placeholder="Tujuan acara" required />
                     <textarea name="expectedOutcome" className="min-h-24 rounded-md border border-neutral-200 px-3 py-2" placeholder="Expected outcome" required />
+                    <label className="flex items-center gap-2 text-sm text-neutral-600 md:col-span-2">
+                      <input name="isConfirmed" type="checkbox" className="size-4" />
+                      Sidang Dharma sudah dikonfirmasi
+                    </label>
                   </div>
                 </fieldset>
-                <label className="flex items-center gap-2 text-sm text-neutral-600">
-                  <input name="isConfirmed" type="checkbox" className="size-4" />
-                  Sidang Dharma sudah dikonfirmasi
-                </label>
                 <button disabled={saving} className="rounded-md bg-[#f4b63f] px-4 py-2.5 text-sm font-bold text-[#1f1f1f] disabled:opacity-60">
                   {saving ? "Menyimpan..." : "Buat Draft Sidang Dharma"}
                 </button>
@@ -377,45 +401,82 @@ export default function EventsEngine() {
             </section>
           ) : null}
 
-          <div className="surface flex flex-col gap-3 rounded-lg p-4 sm:flex-row sm:items-center">
+          <div className="surface flex flex-wrap gap-2 rounded-lg p-3">
+            {listTabs.map((tab) => {
+              const count = events.filter((event) => tab.statuses.includes(event.status)).length;
+              const active = listTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setListTab(tab.id)}
+                  className={`rounded-full px-4 py-2.5 text-sm font-semibold ${
+                    active ? "bg-[#f4b63f] text-[#1f1f1f]" : "bg-white text-neutral-600 hover:bg-[#fff7e8]"
+                  }`}
+                >
+                  {tab.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="surface rounded-lg p-4">
             <input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Cari judul Sidang Dharma..."
-              className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm sm:flex-1"
+              className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm"
             />
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm sm:w-auto"
-            >
-              {statusFilterOptions.map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
-              ))}
-            </select>
           </div>
 
           <div className="grid gap-3">
             {filteredEvents.length === 0 ? (
               <div className="surface rounded-lg p-5 text-sm text-neutral-600">
-                {events.length === 0 ? "Belum ada Sidang Dharma. Buat draft pertama dengan tombol Buat acara." : "Tidak ada Sidang Dharma yang cocok dengan pencarian/filter."}
+                {events.length === 0
+                  ? "Belum ada Sidang Dharma. Buat draft pertama dengan tombol Buat acara."
+                  : "Tidak ada Sidang Dharma di tab ini. Coba tab lain atau ubah kata kunci pencarian."}
               </div>
             ) : null}
-            {filteredEvents.map((event) => (
-              <button
-                key={event.id}
-                onClick={() => openDetail(event.id)}
-                className="surface flex flex-col gap-2 rounded-lg p-4 text-left transition hover:bg-[#fff7e8] sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-base font-bold text-[#1f1f1f]">{event.title}</p>
-                  <p className="mt-1 text-sm text-neutral-500">
-                    {event.hostingBranch?.name || "PUSAT"} • {new Date(event.startAt).toLocaleDateString("id-ID")} • {event._count.participants} peserta
-                  </p>
+            {filteredEvents.map((event) => {
+              const attendanceSignal = getAttendanceSignal(event, event.participants);
+              const signalLabel =
+                attendanceSignal !== null
+                  ? `Hadir: ${attendanceSignal}%`
+                  : `${event._count.participants}/${event.minimumParticipants || "-"} peserta`;
+              return (
+                <div
+                  key={event.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openDetail(event.id)}
+                  onKeyDown={(keyEvent) => {
+                    if (keyEvent.key === "Enter") openDetail(event.id);
+                  }}
+                  className="surface flex cursor-pointer flex-col gap-3 rounded-lg p-4 text-left transition hover:bg-[#fff7e8] sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-bold text-[#1f1f1f]">{event.title}</p>
+                    <p className="mt-1 text-sm text-neutral-500">
+                      {event.hostingBranch?.name || "PUSAT"} • {new Date(event.startAt).toLocaleDateString("id-ID")}, {formatTimeRange(event.startAt, event.endAt)}
+                    </p>
+                    <p className="mt-1 text-sm text-neutral-500">
+                      {event.location || "Lokasi belum diisi"} • {signalLabel}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-row items-center gap-2 sm:flex-col sm:items-end">
+                    <StatusBadge value={event.status} label={getEventStatusLabel(event.status)} />
+                    <button
+                      onClick={(clickEvent) => {
+                        clickEvent.stopPropagation();
+                        openDetail(event.id);
+                      }}
+                      className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700 hover:bg-[#fff7e8]"
+                    >
+                      {getListPrimaryActionLabel(event.status)}
+                    </button>
+                  </div>
                 </div>
-                <StatusBadge value={event.status} label={getEventStatusLabel(event.status)} />
-              </button>
-            ))}
+              );
+            })}
           </div>
         </section>
       ) : null}
@@ -535,21 +596,34 @@ export default function EventsEngine() {
           </div>
 
           <div className="surface rounded-lg p-5">
-            <h3 className="text-base font-semibold text-[#1f1f1f]">Participant</h3>
-            {selectedEvent.participants.length === 0 ? (
-              <p className="mt-2 text-sm text-neutral-500">Belum ada role Sidang Dharma.</p>
-            ) : (
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                {selectedEvent.participants.map((participant) => (
-                  <div key={participant.id} className="rounded-md bg-[#fff7e8] px-3 py-2 text-sm">
-                    <strong>{participant.user.chineseName || participant.user.fullName}</strong>
-                    <span className="text-neutral-500"> • {eventRoleLabel(participant.role)}</span>
-                    <span className="text-neutral-500"> • {getRegistrationStatusLabel(participant.registrationStatus)}</span>
-                    {participant.speakerCategory ? <span className="text-neutral-500"> • {getSpeakerCategoryLabel(participant.speakerCategory)}</span> : null}
-                  </div>
-                ))}
-              </div>
-            )}
+            <h3 className="text-base font-semibold text-[#1f1f1f]">Tim acara</h3>
+            <p className="mt-1 text-sm text-neutral-500">Role operasional yang sudah/belum ditugaskan untuk acara ini.</p>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {groupParticipantsByOperationalRole(selectedEvent.participants).map((group) => (
+                <div key={group.role} className="rounded-md border border-neutral-200 bg-white p-3 text-sm">
+                  <p className="font-bold text-[#1f1f1f]">{group.label}</p>
+                  {group.assigned.length === 0 ? (
+                    <p className="mt-1 text-neutral-400">Belum ada yang ditugaskan</p>
+                  ) : (
+                    <ul className="mt-1 space-y-1">
+                      {group.assigned.map((participant) => (
+                        <li key={participant.id} className="text-neutral-600">
+                          {participant.user.chineseName || participant.user.fullName}
+                          <span className="text-neutral-500"> • {getRegistrationStatusLabel(participant.registrationStatus)}</span>
+                          {participant.speakerCategory ? <span className="text-neutral-500"> • {getSpeakerCategoryLabel(participant.speakerCategory)}</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-sm text-neutral-500">
+              {selectedEvent.participants.filter((participant) => participant.role === "ATTENDEE").length} pendaftar (peserta) •{" "}
+              <Link href={`/events/${selectedEvent.id}`} className="font-semibold text-[#9a6a00] hover:underline">
+                Lihat semua peserta
+              </Link>
+            </p>
           </div>
 
           <div className="surface rounded-lg p-5">

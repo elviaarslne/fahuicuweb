@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function EventSessionManager({ eventId }: { eventId: string }) {
+  const router = useRouter();
   const [message, setMessage] = useState("");
 
   async function submit(formData: FormData) {
@@ -22,7 +24,12 @@ export default function EventSessionManager({ eventId }: { eventId: string }) {
       }),
     });
     const data = await response.json();
-    setMessage(data.error || "Sesi/topik tersimpan. Refresh halaman untuk melihat update.");
+    if (response.ok) {
+      setMessage("Sesi/topik tersimpan.");
+      router.refresh();
+    } else {
+      setMessage(data.error || "Gagal menyimpan sesi/topik.");
+    }
   }
 
   return (

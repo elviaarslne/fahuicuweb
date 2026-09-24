@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SkeletonList } from "@/components/Skeleton";
 import StatusBadge from "@/components/StatusBadge";
-import { getEventRoleLabel } from "@/lib/event-options";
+import { getEventRoleLabel, getEventStatusLabel } from "@/lib/event-options";
 
 type PendingUser = {
   id: string;
@@ -23,6 +24,8 @@ type PendingParticipant = {
   };
   event: {
     title: string;
+    status: string;
+    startAt: string;
     hostingBranch: { name: string; foThangName: string };
     targetClass?: { name: string } | null;
   };
@@ -91,7 +94,7 @@ export default function ApprovalQueue() {
     }
   }
 
-  if (loading) return <div className="surface rounded-lg p-5 text-sm text-neutral-500">Memuat approval queue...</div>;
+  if (loading) return <SkeletonList cards={2} />;
   if (error) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>;
   if (pendingUsers.length === 0 && pendingCrossBranch.length === 0) {
     return (
@@ -122,8 +125,8 @@ export default function ApprovalQueue() {
                 <p className="text-xs text-neutral-500">{user.email}</p>
                 <p className="mt-1 text-xs text-neutral-500">{user.homeBranch?.name || "-"} • {user.currentClass?.name || "Kelas belum ditentukan"}</p>
                 <div className="mt-3 flex gap-2">
-                  <button disabled={savingId === user.id} onClick={() => updateUser(user.id, "ACTIVE")} className="rounded-md bg-[#f4b63f] px-3 py-1.5 text-xs font-bold text-[#1f1f1f]">Approve</button>
-                  <button disabled={savingId === user.id} onClick={() => updateUser(user.id, "REJECTED")} className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-bold text-neutral-700">Reject</button>
+                  <button disabled={savingId === user.id} onClick={() => updateUser(user.id, "ACTIVE")} className="rounded-md bg-[#f4b63f] px-3 py-2.5 text-xs font-bold text-[#1f1f1f]">Approve</button>
+                  <button disabled={savingId === user.id} onClick={() => updateUser(user.id, "REJECTED")} className="rounded-md border border-neutral-300 bg-white px-3 py-2.5 text-xs font-bold text-neutral-700">Reject</button>
                 </div>
               </div>
             ))}
@@ -136,12 +139,17 @@ export default function ApprovalQueue() {
           <div className="mt-3 space-y-3">
             {pendingCrossBranch.map((item) => (
               <div key={item.id} className="rounded-md bg-[#fff7e8] p-3 text-sm">
-                <p className="font-semibold">{item.user.fullName}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold">{item.user.fullName}</p>
+                  <StatusBadge value={item.event.status} label={getEventStatusLabel(item.event.status)} />
+                </div>
                 <p className="text-xs text-neutral-500">{item.user.homeBranch?.name || "-"} → {item.event.hostingBranch.name}</p>
-                <p className="mt-1 text-xs text-neutral-500">{item.event.title} • {item.event.targetClass?.name || "Semua kelas"} • {getEventRoleLabel(item.role)}</p>
+                <p className="mt-1 text-xs text-neutral-500">
+                  {item.event.title} • {new Date(item.event.startAt).toLocaleDateString("id-ID")} • {item.event.targetClass?.name || "Semua kelas"} • {getEventRoleLabel(item.role)}
+                </p>
                 <div className="mt-3 flex gap-2">
-                  <button disabled={savingId === item.id} onClick={() => updateRegistration(item.id, "APPROVED")} className="rounded-md bg-[#f4b63f] px-3 py-1.5 text-xs font-bold text-[#1f1f1f]">Approve</button>
-                  <button disabled={savingId === item.id} onClick={() => updateRegistration(item.id, "REJECTED")} className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-bold text-neutral-700">Reject</button>
+                  <button disabled={savingId === item.id} onClick={() => updateRegistration(item.id, "APPROVED")} className="rounded-md bg-[#f4b63f] px-3 py-2.5 text-xs font-bold text-[#1f1f1f]">Approve</button>
+                  <button disabled={savingId === item.id} onClick={() => updateRegistration(item.id, "REJECTED")} className="rounded-md border border-neutral-300 bg-white px-3 py-2.5 text-xs font-bold text-neutral-700">Reject</button>
                 </div>
               </div>
             ))}

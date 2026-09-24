@@ -1,3 +1,5 @@
+import { operationalEventRoles } from "@/lib/operational-permissions";
+
 export const eventStatusOptions = [
   { value: "DRAFT", label: "Draft" },
   { value: "PUBLISHED", label: "Published" },
@@ -73,4 +75,47 @@ export function getNextEventStatus(status: string) {
 
 export function canAdvanceEventStatus(fromStatus: string, toStatus: string) {
   return getNextEventStatus(fromStatus) === toStatus;
+}
+
+export type ReadinessItem = { label: string; met: boolean };
+
+// Only signals derivable from fields the Event model actually leaves optional
+// (title/purpose/expectedOutcome/startAt/hostingBranchId are enforced by the
+// create schema, so a checklist item for those could never read "not met" --
+// that would be decoration, not signal).
+export function getEventReadiness(event: {
+  location: string | null;
+  isConfirmed: boolean;
+  participants: Array<{ role: string }>;
+}): ReadinessItem[] {
+  const hasOperationalAssignment = event.participants.some((participant) => participant.role !== "ATTENDEE");
+  return [
+    { label: "Lokasi sudah diisi", met: Boolean(event.location) },
+    { label: "Minimal satu role operasional sudah ditugaskan", met: hasOperationalAssignment },
+    { label: "Event sudah dikonfirmasi", met: event.isConfirmed },
+  ];
+}
+
+export function groupParticipantsByOperationalRole<T extends { role: string }>(participants: T[]) {
+  return operationalEventRoles.map((role) => ({
+    role,
+    label: getEventRoleLabel(role),
+    assigned: participants.filter((participant) => participant.role === role),
+  }));
+}
+
+const attendanceSignalStatuses = ["ONGOING", "COMPLETED", "FEEDBACK_COLLECTION", "ARCHIVED"];
+
+// Attendance rate is only meaningful once the event has actually started --
+// showing a 0% rate for a not-yet-started event would misrepresent it as
+// under-attended rather than simply not-yet-run.
+export function getAttendanceSignal(
+  event: { status: string },
+  participants: Array<{ attendanceStatus: string }>,
+): number | null {
+  if (!attendanceSignalStatuses.includes(event.status)) return null;
+  const total = participants.length;
+  if (!total) return null;
+  const present = participants.filter((participant) => ["PRESENT", "LATE"].includes(participant.attendanceStatus)).length;
+  return Math.round((present / total) * 100);
 }

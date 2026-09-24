@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { SkeletonList } from "@/components/Skeleton";
 import { dictionary, type Locale } from "@/lib/i18n";
 import { jakartaDayBoundsUtc, jakartaMonthBoundsUtc, jakartaWeekBoundsUtc } from "@/lib/jakarta-time";
 import { scheduleProgramOptions } from "@/lib/schedule-options";
@@ -145,7 +146,7 @@ export default function ScheduleEngine({ locale }: { locale: Locale }) {
       {error ? <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
 
       {loading ? (
-        <div className="surface rounded-lg p-5 text-sm text-neutral-500">...</div>
+        <SkeletonList cards={3} lines={4} />
       ) : groups.length === 0 ? (
         <div className="surface rounded-lg p-5 text-sm text-neutral-500">{t.empty}</div>
       ) : (

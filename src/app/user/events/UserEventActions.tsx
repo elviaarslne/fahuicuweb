@@ -41,6 +41,7 @@ export default function UserEventActions({
     const data = await response.json();
     setBusy(false);
     setMessage(data.message || data.error || "Selesai.");
+    if (response.ok) router.refresh();
   }
 
   return (

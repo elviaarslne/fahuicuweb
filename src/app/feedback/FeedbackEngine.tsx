@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { SkeletonList } from "@/components/Skeleton";
 import StatusBadge from "@/components/StatusBadge";
 import { getEventStatusLabel } from "@/lib/event-options";
 import {
@@ -144,7 +145,7 @@ export default function FeedbackEngine() {
   }
 
   if (loading) {
-    return <div className="mt-5 rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-500">Memuat feedback engine...</div>;
+    return <SkeletonList cards={3} />;
   }
 
   return (
@@ -217,7 +218,13 @@ export default function FeedbackEngine() {
                 <div>
                   <h2 className="font-semibold text-[#1f1f1f]">Form feedback peserta</h2>
                   <p className="mt-1 text-sm text-neutral-500">
-                    {selectedEvent.alreadySubmitted ? "Feedback sebelumnya akan diperbarui." : "Feedback hanya aktif saat lifecycle Feedback Collection."}
+                    {selectedEvent.canSubmit
+                      ? selectedEvent.alreadySubmitted
+                        ? "Feedback sebelumnya akan diperbarui."
+                        : "Isi feedback selagi masih terbuka."
+                      : selectedEvent.status === "FEEDBACK_COLLECTION"
+                        ? "Feedback sudah dibuka, tapi kamu bukan participant approved di acara ini."
+                        : `Feedback dibuka saat status event masuk Feedback Collection (status saat ini: ${getEventStatusLabel(selectedEvent.status)}).`}
                   </p>
                 </div>
                 {!selectedEvent.canSubmit ? <span className="rounded-full bg-[#f5f5f5] px-3 py-1 text-xs font-bold text-neutral-500">Belum dibuka</span> : null}

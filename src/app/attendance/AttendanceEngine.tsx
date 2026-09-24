@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ClipboardCopy, QrCode, RefreshCw } from "lucide-react";
 import QRCode from "qrcode";
+import { SkeletonList } from "@/components/Skeleton";
 import StatusBadge from "@/components/StatusBadge";
 import { attendanceStatusOptions, getAttendanceStatusLabel, getEventStatusLabel } from "@/lib/event-options";
 
@@ -133,11 +134,13 @@ export default function AttendanceEngine() {
   }
 
   const totalRegistered = selectedEvent ? new Set(selectedEvent.participants.map((participant) => participant.userId)).size : 0;
-  const totalPresent = selectedEvent?.attendances.filter((row) => ["PRESENT", "LATE"].includes(row.status)).length || 0;
-  const rate = totalRegistered ? Math.round((totalPresent / totalRegistered) * 100) : 0;
+  const statusCounts = attendanceStatusOptions.reduce<Record<string, number>>((counts, option) => {
+    counts[option.value] = selectedEvent?.attendances.filter((row) => row.status === option.value).length ?? 0;
+    return counts;
+  }, {});
 
   if (loading) {
-    return <div className="mt-5 rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-500">Memuat attendance engine...</div>;
+    return <SkeletonList cards={3} />;
   }
 
   return (
@@ -176,21 +179,6 @@ export default function AttendanceEngine() {
               </div>
               <StatusBadge value={selectedEvent.status} label={getEventStatusLabel(selectedEvent.status)} />
             </div>
-
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              <div className="rounded-md bg-[#fff7e8] p-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Registered users</p>
-                <p className="mt-2 text-2xl font-bold">{totalRegistered}</p>
-              </div>
-              <div className="rounded-md bg-[#f5f5f5] p-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Present + Late</p>
-                <p className="mt-2 text-2xl font-bold">{totalPresent}</p>
-              </div>
-              <div className="rounded-md bg-[#fff7e8] p-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Attendance rate</p>
-                <p className="mt-2 text-2xl font-bold">{rate}%</p>
-              </div>
-            </div>
           </div>
 
           <div className="surface rounded-lg p-5">
@@ -214,47 +202,91 @@ export default function AttendanceEngine() {
           </div>
 
           <div className="surface rounded-lg p-5">
-            <h2 className="font-semibold text-[#1f1f1f]">Daftar attendance</h2>
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-left text-sm">
-                <thead className="text-xs uppercase tracking-wide text-neutral-500">
-                  <tr>
-                    <th className="px-3 py-2">Nama</th>
-                    <th className="px-3 py-2">Status</th>
-                    <th className="px-3 py-2">Source</th>
-                    <th className="px-3 py-2">Check-in</th>
-                    <th className="px-3 py-2">Check-out</th>
-                    <th className="px-3 py-2">Koreksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedEvent.attendances.map((attendance) => (
-                    <tr key={attendance.id} className="bg-white">
-                      <td className="rounded-l-md px-3 py-3 font-semibold text-[#1f1f1f]">{personName(attendance.user)}</td>
-                      <td className="px-3 py-3"><StatusBadge value={attendance.status} label={getAttendanceStatusLabel(attendance.status)} /></td>
-                      <td className="px-3 py-3 text-neutral-600">{attendance.source}</td>
-                      <td className="px-3 py-3 text-neutral-600">{formatDate(attendance.checkedInAt)}</td>
-                      <td className="px-3 py-3 text-neutral-400">{formatDate(attendance.checkedOutAt)}</td>
-                      <td className="rounded-r-md px-3 py-3">
-                        <select
-                          disabled={saving}
-                          value={attendance.status}
-                          onChange={(event) => manualUpdate(attendance.id, event.target.value)}
-                          className="rounded-md border border-neutral-200 px-2 py-1.5 text-xs"
-                        >
-                          {attendanceStatusOptions.map((item) => (
-                            <option key={item.value} value={item.value}>{item.label}</option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {selectedEvent.attendances.length === 0 ? (
-                <div className="rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-500">Belum ada attendance record.</div>
-              ) : null}
+            <h2 className="font-semibold text-[#1f1f1f]">Ringkasan kehadiran</h2>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+              <div className="rounded-md bg-[#fff7e8] p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Terdaftar</p>
+                <p className="mt-2 text-2xl font-bold">{totalRegistered}</p>
+              </div>
+              {attendanceStatusOptions
+                .filter((option) => option.value !== "NOT_CHECKED_IN")
+                .map((option) => (
+                  <div key={option.value} className="rounded-md bg-[#f5f5f5] p-4">
+                    <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">{option.label}</p>
+                    <p className="mt-2 text-2xl font-bold">{statusCounts[option.value] ?? 0}</p>
+                  </div>
+                ))}
             </div>
+          </div>
+
+          <div className="surface rounded-lg p-5">
+            <h2 className="font-semibold text-[#1f1f1f]">Daftar attendance</h2>
+            {selectedEvent.attendances.length === 0 ? (
+              <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-500">Belum ada attendance record.</div>
+            ) : (
+              <>
+                <div className="mt-4 hidden overflow-x-auto md:block">
+                  <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-left text-sm">
+                    <thead className="text-xs uppercase tracking-wide text-neutral-500">
+                      <tr>
+                        <th className="px-3 py-2">Nama</th>
+                        <th className="px-3 py-2">Status</th>
+                        <th className="px-3 py-2">Source</th>
+                        <th className="px-3 py-2">Check-in</th>
+                        <th className="px-3 py-2">Check-out</th>
+                        <th className="px-3 py-2">Koreksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedEvent.attendances.map((attendance) => (
+                        <tr key={attendance.id} className="bg-white">
+                          <td className="rounded-l-md px-3 py-3 font-semibold text-[#1f1f1f]">{personName(attendance.user)}</td>
+                          <td className="px-3 py-3"><StatusBadge value={attendance.status} label={getAttendanceStatusLabel(attendance.status)} /></td>
+                          <td className="px-3 py-3 text-neutral-600">{attendance.source}</td>
+                          <td className="px-3 py-3 text-neutral-600">{formatDate(attendance.checkedInAt)}</td>
+                          <td className="px-3 py-3 text-neutral-400">{formatDate(attendance.checkedOutAt)}</td>
+                          <td className="rounded-r-md px-3 py-3">
+                            <select
+                              disabled={saving}
+                              value={attendance.status}
+                              onChange={(event) => manualUpdate(attendance.id, event.target.value)}
+                              className="rounded-md border border-neutral-200 px-2 py-1.5 text-xs"
+                            >
+                              {attendanceStatusOptions.map((item) => (
+                                <option key={item.value} value={item.value}>{item.label}</option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-4 space-y-3 md:hidden">
+                  {selectedEvent.attendances.map((attendance) => (
+                    <div key={attendance.id} className="rounded-lg border border-neutral-200 bg-white p-3 text-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold text-[#1f1f1f]">{personName(attendance.user)}</p>
+                        <StatusBadge value={attendance.status} label={getAttendanceStatusLabel(attendance.status)} />
+                      </div>
+                      <p className="mt-1 text-xs text-neutral-500">
+                        {attendance.source} • Check-in: {formatDate(attendance.checkedInAt)}
+                      </p>
+                      <select
+                        disabled={saving}
+                        value={attendance.status}
+                        onChange={(event) => manualUpdate(attendance.id, event.target.value)}
+                        className="mt-3 w-full rounded-md border border-neutral-200 px-3 py-2.5 text-sm"
+                      >
+                        {attendanceStatusOptions.map((item) => (
+                          <option key={item.value} value={item.value}>{item.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </>
       )}
