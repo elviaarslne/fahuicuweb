@@ -79,129 +79,147 @@ export default async function InternalDashboardPage() {
   const memberWhere = userScopedWhere(user);
   const { start: todayStart, end: todayEnd } = jakartaDayBoundsUtc();
 
-  const [
-    branches,
-    totalMembers,
-    pendingUsers,
-    events,
-    feedbacks,
-    pendingCrossBranch,
-    availableEvents,
-    myParticipants,
-    feedbackTodo,
-    todayWejangan,
-    todayEvents,
-    pendingTopicFeedbackCount,
-    pendingEventReflectionCount,
-  ] = await Promise.all([
-    prisma.branch.findMany({
-      orderBy: [{ isCenter: "desc" }, { name: "asc" }],
-      include: {
-        _count: { select: { users: true, events: true } },
-      },
-    }),
-    prisma.user.count({ where: { status: "ACTIVE", ...memberWhere } }),
-    prisma.user.count({ where: { status: "PENDING", ...memberWhere } }),
-    prisma.event.findMany({
-      where: eventWhere,
-      orderBy: { startAt: "desc" },
-      take: 6,
-      include: {
-        hostingBranch: true,
-        targetClass: true,
-        attendances: true,
-        feedbacks: true,
-        _count: { select: { participants: true, feedbacks: true } },
-      },
-    }),
-    prisma.feedback.findMany({
-      where: {
-        event: eventWhere,
-      },
-      include: {
-        event: { include: { hostingBranch: true } },
-      },
-      take: 12,
-      orderBy: { createdAt: "desc" },
-    }),
-    isLeader
-      ? prisma.eventParticipant.count({
-          where: {
-            registrationStatus: "PENDING_APPROVAL",
-            event: roles.includes("SUPER_ADMIN") ? undefined : { hostingBranchId: user.homeBranchId },
-          },
-        })
-      : 0,
-    prisma.event.findMany({
-      where: {
-        status: { in: ["PUBLISHED", "REGISTRATION_OPEN"] },
-        participants: { none: { userId: user.id, role: "ATTENDEE" } },
-      },
-      include: { hostingBranch: true, targetClass: true, _count: { select: { participants: true } } },
-      orderBy: { startAt: "asc" },
-      take: 4,
-    }),
-    prisma.eventParticipant.findMany({
-      where: { userId: user.id },
-      include: {
-        event: {
-          include: {
-            hostingBranch: true,
-            targetClass: true,
-            attendances: true,
-            feedbacks: { where: { userId: user.id } },
-            _count: { select: { participants: true, feedbacks: true } },
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 6,
-    }),
-    prisma.eventParticipant.count({
-      where: {
-        userId: user.id,
-        registrationStatus: "APPROVED",
-        feedbackSubmitted: false,
-        event: { status: "FEEDBACK_COLLECTION" },
-      },
-    }),
-    prisma.dailyWejangan.findFirst({
-      where: { uploadDate: { gte: todayStart, lte: todayEnd } },
-      include: { reflections: { where: { userId: user.id } } },
-      orderBy: { uploadDate: "desc" },
-    }),
-    prisma.event.findMany({
-      where: {
-        startAt: {
-          gte: todayStart,
-          lte: todayEnd,
-        },
-        participants: { some: { userId: user.id, registrationStatus: "APPROVED" } },
-      },
-      include: { hostingBranch: true, participants: { where: { userId: user.id } } },
-      orderBy: { startAt: "asc" },
-      take: 3,
-    }),
-    prisma.eventSession.count({
-      where: {
-        event: {
-          participants: { some: { userId: user.id, registrationStatus: "APPROVED" } },
-          status: { in: ["COMPLETED", "FEEDBACK_COLLECTION"] },
-        },
-        topicFeedbacks: { none: { userId: user.id } },
-      },
-    }),
-    prisma.eventParticipant.count({
-      where: {
-        userId: user.id,
-        registrationStatus: "APPROVED",
-        event: {
-          status: { in: ["COMPLETED", "FEEDBACK_COLLECTION"] },
-          eventReflections: { none: { userId: user.id } },
-        },
-      },
-    }),
-  ]);
+  // The dashboard renders one of two mutually-exclusive JSX branches below
+  // (member schedule view, or leader/trainer operational view), and each
+  // branch only ever reads a subset of these queries -- see the per-role
+  // usage audit in the dashboard performance task. Firing all of them
+  // unconditionally for every role wastes round trips against the shared
+  // connection pool for data that's never rendered, so each query below is
+  // skipped (via `Promise.resolve` placeholders that keep the destructuring
+  // shape stable) whenever the current role's JSX branch can't read it.
+  const isLeaderOrTrainer = isLeader || isTrainer;
+
+  const [branches, totalMembers, pendingUsers, events, feedbacks, pendingCrossBranch, feedbackTodo] =
+    isLeaderOrTrainer
+      ? await Promise.all([
+          isLeader
+            ? prisma.branch.findMany({
+                orderBy: [{ isCenter: "desc" }, { name: "asc" }],
+                include: {
+                  _count: { select: { users: true, events: true } },
+                },
+              })
+            : Promise.resolve([]),
+          isLeader ? prisma.user.count({ where: { status: "ACTIVE", ...memberWhere } }) : Promise.resolve(0),
+          isLeader ? prisma.user.count({ where: { status: "PENDING", ...memberWhere } }) : Promise.resolve(0),
+          prisma.event.findMany({
+            where: eventWhere,
+            orderBy: { startAt: "desc" },
+            take: 6,
+            include: {
+              hostingBranch: { select: { name: true } },
+              targetClass: { select: { name: true } },
+              attendances: { select: { status: true } },
+              feedbacks: { select: { purposeAchievedRating: true } },
+              _count: { select: { participants: true, feedbacks: true } },
+            },
+          }),
+          prisma.feedback.findMany({
+            where: {
+              event: eventWhere,
+            },
+            include: {
+              event: { select: { title: true, hostingBranch: { select: { name: true } } } },
+            },
+            take: 12,
+            orderBy: { createdAt: "desc" },
+          }),
+          isLeader
+            ? prisma.eventParticipant.count({
+                where: {
+                  registrationStatus: "PENDING_APPROVAL",
+                  event: roles.includes("SUPER_ADMIN") ? undefined : { hostingBranchId: user.homeBranchId },
+                },
+              })
+            : Promise.resolve(0),
+          isTrainer
+            ? prisma.eventParticipant.count({
+                where: {
+                  userId: user.id,
+                  registrationStatus: "APPROVED",
+                  feedbackSubmitted: false,
+                  event: { status: "FEEDBACK_COLLECTION" },
+                },
+              })
+            : Promise.resolve(0),
+        ])
+      : [[], 0, 0, [], [], 0, 0];
+
+  const [availableEvents, myParticipants, todayWejangan, todayEvents, pendingTopicFeedbackCount, pendingEventReflectionCount] =
+    !isLeaderOrTrainer
+      ? await Promise.all([
+          prisma.event.findMany({
+            where: {
+              status: { in: ["PUBLISHED", "REGISTRATION_OPEN"] },
+              participants: { none: { userId: user.id, role: "ATTENDEE" } },
+            },
+            select: {
+              id: true,
+              title: true,
+              startAt: true,
+              hostingBranch: { select: { name: true } },
+            },
+            orderBy: { startAt: "asc" },
+            take: 4,
+          }),
+          prisma.eventParticipant.findMany({
+            where: { userId: user.id },
+            select: {
+              event: {
+                select: {
+                  id: true,
+                  title: true,
+                  startAt: true,
+                  hostingBranch: { select: { name: true } },
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 6,
+          }),
+          prisma.dailyWejangan.findFirst({
+            where: { uploadDate: { gte: todayStart, lte: todayEnd } },
+            include: { reflections: { where: { userId: user.id } } },
+            orderBy: { uploadDate: "desc" },
+          }),
+          prisma.event.findMany({
+            where: {
+              startAt: {
+                gte: todayStart,
+                lte: todayEnd,
+              },
+              participants: { some: { userId: user.id, registrationStatus: "APPROVED" } },
+            },
+            select: {
+              id: true,
+              title: true,
+              startAt: true,
+              hostingBranch: { select: { name: true } },
+            },
+            orderBy: { startAt: "asc" },
+            take: 3,
+          }),
+          prisma.eventSession.count({
+            where: {
+              event: {
+                participants: { some: { userId: user.id, registrationStatus: "APPROVED" } },
+                status: { in: ["COMPLETED", "FEEDBACK_COLLECTION"] },
+              },
+              topicFeedbacks: { none: { userId: user.id } },
+            },
+          }),
+          prisma.eventParticipant.count({
+            where: {
+              userId: user.id,
+              registrationStatus: "APPROVED",
+              event: {
+                status: { in: ["COMPLETED", "FEEDBACK_COLLECTION"] },
+                eventReflections: { none: { userId: user.id } },
+              },
+            },
+          }),
+        ])
+      : [[], [], null, [], 0, 0];
 
   const activeEvents = events.filter((event) => ["PUBLISHED", "REGISTRATION_OPEN", "ONGOING"].includes(event.status)).length;
   const alreadyReflectedToday = Boolean(todayWejangan?.reflections.length);
