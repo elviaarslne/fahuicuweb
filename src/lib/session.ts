@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 
 export const memberCategoryCn: Record<string, string> = {
@@ -9,7 +10,8 @@ export const memberCategoryCn: Record<string, string> = {
 };
 
 export async function getCurrentUser() {
-  const userId = (await cookies()).get("fhc_user_id")?.value;
+  const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
+  const userId = verifySessionToken(token);
   if (!userId) return null;
 
   return prisma.user.findUnique({

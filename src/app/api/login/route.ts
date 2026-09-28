@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { createSessionToken, LEGACY_COOKIE_NAME, SESSION_COOKIE_NAME, SESSION_MAX_AGE_SECONDS } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 
 const loginSchema = z.object({
@@ -42,12 +43,17 @@ export async function POST(request: Request) {
       },
     });
 
-    response.cookies.set("fhc_user_id", user.id, {
+    // Each login mints a brand-new signed token (fresh iat/exp) rather than
+    // reusing any prior client-side state, so there's nothing to fixate.
+    response.cookies.set(SESSION_COOKIE_NAME, createSessionToken(user.id), {
       httpOnly: true,
       sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 60 * 60 * 8,
+      maxAge: SESSION_MAX_AGE_SECONDS,
     });
+    // Retire the old unsigned cookie for any browser that still has it.
+    response.cookies.set(LEGACY_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0 });
 
     return response;
   } catch (error) {
