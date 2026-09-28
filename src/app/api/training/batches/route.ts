@@ -81,6 +81,13 @@ export async function POST(request: Request) {
     if (data.hostingBranchId) {
       const branch = await prisma.branch.findUnique({ where: { id: data.hostingBranchId }, select: { id: true } });
       if (!branch) return NextResponse.json({ error: "Cabang tidak ditemukan." }, { status: 404 });
+
+      // Mirrors the same-branch carve-out used in events/route.ts POST -- a
+      // branch-level KETUA/ADMIN may only host a batch for their own branch,
+      // not any branch, unless they're SUPER_ADMIN.
+      if (!roles.includes("SUPER_ADMIN") && data.hostingBranchId !== access.user.homeBranchId) {
+        return NextResponse.json({ error: "Batch hanya bisa dibuat untuk cabang sendiri." }, { status: 403 });
+      }
     }
 
     const batch = await prisma.trainingBatch.create({

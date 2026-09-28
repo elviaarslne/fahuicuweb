@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { Bell, Settings, Star } from "lucide-react";
 import AccountMenu from "@/components/AccountMenu";
 import SidebarNav from "@/components/SidebarNav";
+import { isBranchLeader, isSuperAdmin } from "@/lib/access-control";
 import { normalizeLocale } from "@/lib/i18n";
 import { visibleNavItems } from "@/lib/nav";
 import { getCurrentUser, getDisplayTitle } from "@/lib/session";
@@ -22,7 +23,7 @@ export default async function AppChrome({ children }: { children: React.ReactNod
   const displayName = user?.chineseName || user?.fullName || "Fa Hui Cu";
   const titleCn = getDisplayTitle(user);
   const credit = user?.creditBalance ?? 0;
-  const canUseAdminSurface = roles.some((role) => ["SUPER_ADMIN", "ADMIN", "KETUA", "SUB_KETUA"].includes(role));
+  const canUseAdminSurface = isSuperAdmin(roles) || isBranchLeader(roles);
   const isMemberWorkspace = workspace === "MEMBER";
 
   return (

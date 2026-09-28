@@ -22,8 +22,20 @@ function serializeDate<T extends Record<string, unknown>, K extends keyof T>(
 
 export default async function TrainingAdminPage() {
   const user = await getCurrentUser();
-  const roles = user?.systemRoles.map((role) => role.role) ?? [];
-  const canCreate = Boolean(user && user.status === "ACTIVE" && isAllowed(roles, "manageTraining"));
+  if (!user || user.status !== "ACTIVE") {
+    return (
+      <AppChrome>
+        <section className="surface rounded-lg p-6">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-neutral-500">Login diperlukan</p>
+          <h1 className="mt-2 text-2xl font-semibold text-[#1f1f1f]">Manajemen Training</h1>
+          <p className="mt-2 text-sm leading-6 text-neutral-500">Silakan login dengan akun aktif untuk melihat data training.</p>
+        </section>
+      </AppChrome>
+    );
+  }
+
+  const roles = user.systemRoles.map((role) => role.role);
+  const canCreate = isAllowed(roles, "manageTraining");
 
   const [programsRaw, batchesRaw, sessionsRaw, branches, trainers] = await Promise.all([
     prisma.trainingProgram.findMany({

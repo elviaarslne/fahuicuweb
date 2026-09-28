@@ -192,7 +192,7 @@ export default function AttendanceEngine() {
               </div>
               <div className="min-w-0 flex-1">
                 <h2 className="font-semibold text-[#1f1f1f]">QR check-in</h2>
-                <p className="mt-1 text-sm text-neutral-500">Scan QR ini untuk check-in, atau salin link di bawah. User lintas cabang harus approved dulu oleh Pengawas sebelum bisa check-in.</p>
+                <p className="mt-1 text-sm text-neutral-500">Scan QR ini untuk check-in, atau salin link di bawah. User lintas cabang harus approved dulu oleh MC event atau pengurus cabang sebelum bisa check-in.</p>
                 <div className="mt-3 break-all rounded-md bg-[#f5f5f5] p-3 text-sm">{checkInUrl}</div>
                 <button onClick={copyLink} className="mt-3 inline-flex items-center gap-2 rounded-md bg-[#f4b63f] px-3 py-2 text-sm font-bold text-[#1f1f1f]">
                   <ClipboardCopy size={16} /> Copy link

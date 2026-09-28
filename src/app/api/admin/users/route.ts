@@ -94,6 +94,20 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Hanya Super Admin yang dapat memindahkan user antar cabang." }, { status: 403 });
     }
 
+    // GET already scopes the member list to the actor's own branch via
+    // userScopedWhere; PATCH must enforce the same boundary on the target
+    // user, not just on an explicit branch-move, so a branch-level ADMIN/KETUA
+    // can't approve/reclassify a user outside their own branch.
+    if (!roles.includes("SUPER_ADMIN")) {
+      const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { homeBranchId: true } });
+      if (!targetUser) {
+        return NextResponse.json({ error: "User tidak ditemukan." }, { status: 404 });
+      }
+      if (targetUser.homeBranchId !== currentUser.homeBranchId) {
+        return NextResponse.json({ error: "Hanya bisa mengelola user dari cabang sendiri." }, { status: 403 });
+      }
+    }
+
     const divisionRows = data.divisionIds ? await buildUserDivisionRows(data.divisionIds, data.subdivisionIds || []) : null;
     const user = await prisma.$transaction(async (tx) => {
       if (divisionRows) {

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { canAccess } from "@/lib/access-control";
 import { branchScopedWhere } from "@/lib/branch-scope";
 import { average } from "@/lib/feedback-options";
+import { isBranchAdminLevel } from "@/lib/operational-permissions";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 
@@ -103,7 +104,7 @@ export async function GET() {
       const userParticipant = event.participants.find((participant) => participant.userId === user.id);
       const canSubmit =
         event.status === "FEEDBACK_COLLECTION" &&
-        Boolean(userParticipant || roles.includes("ADMIN") || roles.includes("KETUA") || roles.includes("SUB_KETUA"));
+        Boolean(userParticipant || isBranchAdminLevel(roles));
       const canViewSummary =
         canSeeAllSummary ||
         (canSeePartialSummary && event.participants.some((participant) => ["TRAINER", "SPEAKER"].includes(participant.role)));
@@ -166,8 +167,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Feedback hanya dibuka pada tahap Feedback Collection." }, { status: 400 });
     }
 
+    const roles = user.systemRoles.map((role) => role.role);
     const approvedParticipant = event.participants.find((participant) => participant.registrationStatus === "APPROVED");
-    if (!approvedParticipant && !user.systemRoles.some((role) => ["ADMIN", "SUPER_ADMIN", "KETUA", "SUB_KETUA"].includes(role.role))) {
+    // Non-participant branch leadership may submit on an event's behalf, but
+    // -- same as every other cross-branch carve-out in this codebase -- only
+    // for their own branch's events unless they're SUPER_ADMIN.
+    const isBranchAdminForEvent =
+      isBranchAdminLevel(roles) && (roles.includes("SUPER_ADMIN") || user.homeBranchId === event.hostingBranchId);
+    if (!approvedParticipant && !isBranchAdminForEvent) {
       return NextResponse.json({ error: "Hanya participant event yang bisa mengirim feedback." }, { status: 403 });
     }
 

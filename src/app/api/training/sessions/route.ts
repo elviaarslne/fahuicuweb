@@ -73,8 +73,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Waktu mulai harus sebelum waktu selesai." }, { status: 400 });
     }
 
-    const batch = await prisma.trainingBatch.findUnique({ where: { id: data.trainingBatchId }, select: { id: true } });
+    const batch = await prisma.trainingBatch.findUnique({ where: { id: data.trainingBatchId }, select: { id: true, hostingBranchId: true } });
     if (!batch) return NextResponse.json({ error: "Batch training tidak ditemukan." }, { status: 404 });
+
+    // Same-branch carve-out as batch creation -- a branch-level KETUA/ADMIN
+    // can only add sessions to a batch hosted by their own branch (an
+    // org-wide batch with no hostingBranchId stays open to any manageTraining
+    // role, matching how it was allowed to be created in the first place).
+    if (batch.hostingBranchId && !roles.includes("SUPER_ADMIN") && batch.hostingBranchId !== access.user.homeBranchId) {
+      return NextResponse.json({ error: "Hanya bisa mengelola sesi untuk batch cabang sendiri." }, { status: 403 });
+    }
 
     if (data.trainerId) {
       const trainer = await prisma.user.findUnique({ where: { id: data.trainerId }, select: { id: true, status: true } });

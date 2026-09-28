@@ -12,7 +12,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) {
-      return NextResponse.json({ error: "Hanya MC/Pengawas/Admin/Ketua yang dapat approve registrasi." }, { status: 403 });
+      return NextResponse.json({ error: "Hanya MC event atau pengurus berwenang yang dapat approve registrasi." }, { status: 403 });
     }
 
     const { id } = await params;

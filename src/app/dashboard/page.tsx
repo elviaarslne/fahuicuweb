@@ -349,7 +349,7 @@ export default async function InternalDashboardPage() {
           <>
             <StatCard label="Total anggota aktif" value={`${totalMembers}`} detail="Mengikuti scope akses login" icon={Users} />
             <StatCard label="Pending users" value={`${pendingUsers}`} detail="Pendaftar perlu diterima/ditolak" icon={ClipboardCheck} />
-            <StatCard label="Pending lintas cabang" value={`${pendingCrossBranch}`} detail="Menunggu approval Pengawas/Admin/Ketua" icon={AlertTriangle} />
+            <StatCard label="Pending lintas cabang" value={`${pendingCrossBranch}`} detail="Menunggu approval MC/Admin/Ketua" icon={AlertTriangle} />
             <StatCard label="Acara aktif" value={`${activeEvents}`} detail="Published, open, atau ongoing" icon={CalendarDays} />
           </>
         ) : (

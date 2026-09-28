@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
+import { isTrainerRole } from "@/lib/access-control";
+import { isContentManager } from "@/lib/admin-content";
 import { canManageEventResource, canViewEventResource } from "@/lib/scope-permissions";
 
 const materialSchema = z.object({
@@ -86,6 +88,17 @@ export async function POST(request: Request) {
 
     if (event && !canManageEventResource(user, event)) {
       return NextResponse.json({ error: "Tidak punya akses upload materi untuk event ini." }, { status: 403 });
+    }
+
+    // classLevelId-only materials have no event to scope against -- require the
+    // same tier that already governs event-scoped uploads (branch leadership/
+    // SUPER_ADMIN, or a trainer) instead of leaving this path open to anyone
+    // who is merely logged in.
+    if (!event) {
+      const roles = user.systemRoles.map((role) => role.role);
+      if (!isContentManager(user) && !isTrainerRole(roles)) {
+        return NextResponse.json({ error: "Tidak punya akses upload materi kelas." }, { status: 403 });
+      }
     }
 
     const material = await prisma.material.create({

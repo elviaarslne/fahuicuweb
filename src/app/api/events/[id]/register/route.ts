@@ -86,7 +86,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         ? "Registrasi otomatis approved."
         : shouldKeepApproved
           ? "Registrasi lintas cabang sudah approved."
-          : "Registrasi lintas cabang menunggu approval Pengawas.",
+          : "Registrasi lintas cabang menunggu approval MC event atau pengurus cabang.",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Gagal daftar event.";
